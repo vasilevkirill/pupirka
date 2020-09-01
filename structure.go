@@ -13,6 +13,7 @@ type Device struct {
 	Dirbackup  string `json:"-"`
 	Command    string `json:"command"`
 	Lastbackup string `json:"-"`
+	//CompareOld bool   `json:"compareold" default:"true"`
 }
 type DeviceList struct {
 	Devices []Device

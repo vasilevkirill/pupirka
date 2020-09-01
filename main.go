@@ -20,6 +20,7 @@ func init() {
 	ConfigV.SetDefault("devicedefault.timeout", 10)
 	ConfigV.SetDefault("devicedefault.every", 3600)
 	ConfigV.SetDefault("devicedefault.rotate", 730)
+	//ConfigV.SetDefault("devicedefault.compareold", true)
 	ConfigV.SetDefault("devicedefault.command", "/export")
 	if err := ConfigV.ReadInConfig(); err != nil { // error read config
 		log.Println(err)
@@ -44,9 +45,11 @@ func main() {
 		os.Exit(0)
 	}
 	RotateDevice(&Dev)
+	log.Println(Dev)
 	if len(Dev.Devices) == 0 {
 		log.Println("All Device backups actual")
 		os.Exit(0)
 	}
 	RunBackups(&Dev)
+
 }

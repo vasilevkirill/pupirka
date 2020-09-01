@@ -99,8 +99,10 @@ func RotateDevice(Dev *DeviceList) {
 			Dev.Devices = RemoveIndexFromDevice(Dev.Devices, i)
 			continue
 		}
+		//FindLastBackupFile(files, &Dev.Devices[i])
 
 		for _, f := range files {
+
 			now := time.Now()
 			fdifftimesecond := now.Sub(f.ModTime()).Seconds()
 			diffday := fdifftimesecond / 60 / 24
@@ -124,6 +126,23 @@ func RotateDevice(Dev *DeviceList) {
 	}
 
 }
+
+/*
+func FindLastBackupFile(files []os.FileInfo, d *Device) {
+	var bt = time.Time{}
+	var fl = ""
+	for _, f := range files {
+
+		if f.ModTime().After(bt) {
+
+			bt = f.ModTime()
+			fl = f.Name()
+		}
+	}
+
+	d.Lastbackup = fmt.Sprintf("%s/%s",d.Dirbackup,fl)
+
+}*/
 func RemoveIndexFromDevice(s []Device, index int) []Device {
 	if len(s) == 1 {
 		return []Device{}
