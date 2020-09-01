@@ -87,7 +87,9 @@ func ReadDevice(Dev *DeviceList) {
 }
 
 func RotateDevice(Dev *DeviceList) {
+
 	for i, d := range Dev.Devices {
+
 		if _, err := os.Stat(d.Dirbackup); os.IsNotExist(err) {
 			_ = os.Mkdir(d.Dirbackup, os.ModePerm)
 			log.Printf("Create Folder %s for backup ", d.Dirbackup)
@@ -96,7 +98,8 @@ func RotateDevice(Dev *DeviceList) {
 		files, err := ioutil.ReadDir(d.Dirbackup)
 		if err != nil {
 			log.Printf("Error read folder backup %s, Error:%s", d.Dirbackup, err.Error())
-			Dev.Devices = RemoveIndexFromDevice(Dev.Devices, i)
+			Dev.Devices[i] = Device{}
+
 			continue
 		}
 		//FindLastBackupFile(files, &Dev.Devices[i])
@@ -117,13 +120,24 @@ func RotateDevice(Dev *DeviceList) {
 
 			}
 			if int(fdifftimesecond) < d.Every {
-				Dev.Devices = RemoveIndexFromDevice(Dev.Devices, i)
+
+				Dev.Devices[i] = Device{}
+
 				break
 			}
 
 		}
 
 	}
+
+	newDev := DeviceList{}
+	for _, d := range Dev.Devices {
+		if d.Name == "" {
+			continue
+		}
+		newDev.Devices = append(newDev.Devices, d)
+	}
+	Dev.Devices = newDev.Devices
 
 }
 
@@ -147,6 +161,11 @@ func RemoveIndexFromDevice(s []Device, index int) []Device {
 	if len(s) == 1 {
 		return []Device{}
 	}
+	if len(s) == index {
+		return append(s[:index])
+	}
+	log.Printf("Count:%d", len(s))
+	log.Printf("Index:%d", index)
 	return append(s[:index], s[index+1:]...)
 }
 
