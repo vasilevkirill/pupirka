@@ -1,12 +1,19 @@
 package main
 
 type Device struct {
-	Name     string
-	Address  string
-	PortSSH  uint16
-	Username string
-	Password string
-	Key      string
-	Timeout  int
-	Every    int
+	Name       string `json:"-"`
+	Address    string `json:"address"`
+	PortSSH    uint16 `json:"portssh"`
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+	Key        string `json:"key"`
+	Timeout    int    `json:"timeout"`
+	Every      int    `json:"every"`
+	Rotate     int    `json:"rotate"`
+	Dirbackup  string `json:"-"`
+	Command    string `json:"command"`
+	Lastbackup string `json:"-"`
+}
+type DeviceList struct {
+	Devices []Device
 }
