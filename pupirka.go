@@ -157,17 +157,6 @@ func FindLastBackupFile(files []os.FileInfo, d *Device) {
 	d.Lastbackup = fmt.Sprintf("%s/%s",d.Dirbackup,fl)
 
 }*/
-func RemoveIndexFromDevice(s []Device, index int) []Device {
-	if len(s) == 1 {
-		return []Device{}
-	}
-	if len(s) == index {
-		return append(s[:index])
-	}
-	log.Printf("Count:%d", len(s))
-	log.Printf("Index:%d", index)
-	return append(s[:index], s[index+1:]...)
-}
 
 func RunBackups(Dev *DeviceList) {
 	log.Printf("Backup Start ---->")

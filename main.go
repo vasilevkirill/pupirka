@@ -45,7 +45,7 @@ func main() {
 		os.Exit(0)
 	}
 	RotateDevice(&Dev)
-	log.Println(Dev)
+
 	if len(Dev.Devices) == 0 {
 		log.Println("All Device backups actual")
 		os.Exit(0)
