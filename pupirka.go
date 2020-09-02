@@ -1,12 +1,10 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/gammazero/workerpool"
 	logrus "github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ssh"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"io/ioutil"
 	"os"
@@ -205,59 +203,9 @@ func backup(d Device, LogDevice *logrus.Logger) {
 		Compress:   false,
 	})
 
-	var auth []ssh.AuthMethod
-	if d.Authkey == false {
-		auth = append(auth, ssh.Password(d.Password))
-	} else {
-		flp := fmt.Sprintf("%s/%s", ConfigV.GetString("path.key"), d.Key)
-		key, err := ioutil.ReadFile(flp)
-		if err != nil {
-			es := fmt.Sprintf("Failed reader key:%s, Error:%s", flp, err.Error())
-			LogConsole.Error(es)
-			return
-		}
-		signer, err := ssh.ParsePrivateKey(key)
-		if err != nil {
-			es := fmt.Sprintf("unable to parse private key::%s, Error:%s", flp, err.Error())
-			LogConsole.Error(es)
-			return
-		}
-		auth = append(auth, ssh.PublicKeys(signer))
-
-	}
-	config := &ssh.ClientConfig{
-		Config:          ssh.Config{},
-		User:            d.Username,
-		Auth:            auth,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         time.Duration(d.Timeout) * time.Second,
-	}
-	adr := fmt.Sprintf("%s:%d", d.Address, d.PortSSH)
-	client, err := ssh.Dial("tcp", adr, config)
-
-	LogDevice.Info("Connect to Device...")
+	bytefromssh, err := SshClientRun(d)
 	if err != nil {
-
-		ers := fmt.Sprintf("Fatal error Device:%s connect to ssh %s, Error:%s", d.Name, adr, err.Error())
-		LogConsole.Error(ers)
-		LogDevice.Error(ers)
-		return
-	}
-	LogDevice.Info("Create Session Device...")
-	session, err := client.NewSession()
-	if err != nil {
-		ers := fmt.Sprintf("Fatal error Device:%s connect to ssh %s, Error:%s", d.Name, adr, err.Error())
-		LogConsole.Error(ers)
-		LogDevice.Error(ers)
-		return
-	}
-	defer session.Close()
-
-	var b bytes.Buffer
-	LogDevice.Info(fmt.Sprintf("Send command %s...", d.Command))
-	session.Stdout = &b
-	if err := session.Run(d.Command); err != nil {
-		ers := fmt.Sprintf("Failed Run command:%s, Error:%s", d.Command, err.Error())
+		ers := fmt.Sprintf("Fatal error Device:%s: %s", d.Name, err.Error())
 		LogConsole.Error(ers)
 		LogDevice.Error(ers)
 		return
@@ -274,7 +222,7 @@ func backup(d Device, LogDevice *logrus.Logger) {
 		return
 	}
 	LogDevice.Info(fmt.Sprintf("Write to file backup %s ...", backupfile))
-	_, err = fn.Write(b.Bytes())
+	_, err = fn.Write(bytefromssh)
 	if err != nil {
 
 		ers := fmt.Sprintf("Fatal error Device:%s write to file %s, Error:%s", d.Name, backupfile, err.Error())
