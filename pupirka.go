@@ -100,14 +100,13 @@ func ReadDevice(Dev *DeviceList) {
 		}
 		d.Dirbackup = fmt.Sprintf("%s/%s", ConfigV.GetString("path.backup"), d.Name)
 		Dev.Devices = append(Dev.Devices, d)
-		log.Println(d)
 	}
 }
 
 func RotateDevice(Dev *DeviceList) {
 	LogConsole.Info("Rotate device list...")
 	for i, d := range Dev.Devices {
-		//LogConsole.Info(fmt.Sprintf("Rotate device %s...", d.Name))
+
 		if _, err := os.Stat(d.Dirbackup); os.IsNotExist(err) {
 			_ = os.Mkdir(d.Dirbackup, os.ModePerm)
 			LogConsole.Info(fmt.Sprintf("Create Folder %s for backup ", d.Dirbackup))
@@ -122,7 +121,6 @@ func RotateDevice(Dev *DeviceList) {
 
 			continue
 		}
-		//FindLastBackupFile(files, &Dev.Devices[i])
 
 		for _, f := range files {
 			re := regexp.MustCompile(`\.log$`)
@@ -164,23 +162,6 @@ func RotateDevice(Dev *DeviceList) {
 
 }
 
-/*
-func FindLastBackupFile(files []os.FileInfo, d *Device) {
-	var bt = time.Time{}
-	var fl = ""
-	for _, f := range files {
-
-		if f.ModTime().After(bt) {
-
-			bt = f.ModTime()
-			fl = f.Name()
-		}
-	}
-
-	d.Lastbackup = fmt.Sprintf("%s/%s",d.Dirbackup,fl)
-
-}*/
-
 func RunBackups(Dev *DeviceList) {
 	LogConsole.Info("Backup Start ---->")
 	wp := workerpool.New(ConfigV.GetInt("process.max"))
@@ -217,7 +198,6 @@ func backup(d Device, LogDevice *logrus.Logger) {
 		Compress:   false,
 	})
 
-	//var hostKey ssh.PublicKey
 	var auth []ssh.AuthMethod
 	if d.Authkey == false {
 		auth = append(auth, ssh.Password(d.Password))

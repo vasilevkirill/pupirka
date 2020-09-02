@@ -27,7 +27,6 @@ func init() {
 	ConfigV.SetDefault("devicedefault.every", 3600)
 	ConfigV.SetDefault("devicedefault.rotate", 730)
 	ConfigV.SetDefault("devicedefault.key", "")
-	//ConfigV.SetDefault("devicedefault.compareold", true)
 	ConfigV.SetDefault("devicedefault.command", "/export")
 	ConfigV.SetDefault("process.max", 10)
 
