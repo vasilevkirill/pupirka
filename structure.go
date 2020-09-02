@@ -14,7 +14,6 @@ type Device struct {
 	Command    string `json:"command"`
 	Lastbackup string `json:"-"`
 	Authkey    bool   `json:"-" default:"false"`
-	//CompareOld bool   `json:"compareold" default:"true"`
 }
 type DeviceList struct {
 	Devices []Device

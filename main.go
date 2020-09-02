@@ -29,7 +29,6 @@ func init() {
 	ConfigV.SetDefault("devicedefault.key", "")
 	ConfigV.SetDefault("devicedefault.command", "/export")
 	ConfigV.SetDefault("process.max", 10)
-
 	ConfigV.SetDefault("log.maxday", 1)
 	ConfigV.SetDefault("log.format", "text")
 	if err := ConfigV.ReadInConfig(); err != nil { // error read config
