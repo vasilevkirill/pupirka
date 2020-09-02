@@ -1,6 +1,8 @@
 /device/
 /backup/
 /key/
+/keys/
+/log/
 /pupirka.config.json
 /pupirka_darwin_amd64
 /pupirka_freebsd_386
