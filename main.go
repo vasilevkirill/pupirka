@@ -1,13 +1,18 @@
 package main
 
 import (
+	"fmt"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"log"
 	"os"
 )
 
 var ConfigV = viper.New()
 var DeviceFiles []string
+var LogGlobal = logrus.New()
+var LogConsole = logrus.New()
 
 func init() {
 	ConfigV.SetConfigType("json")
@@ -16,12 +21,17 @@ func init() {
 	ConfigV.SetDefault("path.backup", "./backup")
 	//ConfigV.SetDefault("path.key", "./key")
 	ConfigV.SetDefault("path.devices", "./device")
+	ConfigV.SetDefault("path.log", "./log")
 	ConfigV.SetDefault("devicedefault.portshh", 22)
 	ConfigV.SetDefault("devicedefault.timeout", 10)
 	ConfigV.SetDefault("devicedefault.every", 3600)
 	ConfigV.SetDefault("devicedefault.rotate", 730)
 	//ConfigV.SetDefault("devicedefault.compareold", true)
 	ConfigV.SetDefault("devicedefault.command", "/export")
+	ConfigV.SetDefault("process.max", 10)
+
+	ConfigV.SetDefault("log.maxday", 1)
+	ConfigV.SetDefault("log.format", "text")
 	if err := ConfigV.ReadInConfig(); err != nil { // error read config
 		log.Println(err)
 		ConfigV.SafeWriteConfig()
@@ -34,22 +44,34 @@ func init() {
 			log.Printf("Create Folder %s", path)
 		}
 	}
+	LogConsole.SetOutput(os.Stdout)
+	LogGlobal.SetOutput(&lumberjack.Logger{
+		Filename:   fmt.Sprintf("%s/%s", ConfigV.GetString("path.log"), "pupirka.log"),
+		MaxSize:    0,
+		MaxAge:     ConfigV.GetInt("log.maxday"),
+		MaxBackups: 0,
+		LocalTime:  true,
+		Compress:   false,
+	})
+
 }
 
 func main() {
+	LogConsole.Info("Starting....")
+	LogConsole.Info("Scan Devices....")
 	ScanDevice()
 	var Dev DeviceList
 	ReadDevice(&Dev)
 	if len(Dev.Devices) == 0 {
-		log.Println("Not Device for backup")
+		LogConsole.Info("Not Device for backup")
 		os.Exit(0)
 	}
+	LogConsole.Info(fmt.Sprintf("Devices count %d", len(Dev.Devices)))
 	RotateDevice(&Dev)
 
 	if len(Dev.Devices) == 0 {
-		log.Println("All Device backups actual")
+		LogConsole.Info("All Device backups actual")
 		os.Exit(0)
 	}
 	RunBackups(&Dev)
-
 }

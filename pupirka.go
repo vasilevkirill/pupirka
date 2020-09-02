@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/gammazero/workerpool"
+	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"io/ioutil"
 	"log"
 	"os"
@@ -12,6 +15,8 @@ import (
 	"strconv"
 	"time"
 )
+
+type Logger logrus.Logger
 
 func ScanDevice() {
 	dir := ConfigV.GetString("path.devices")
@@ -87,17 +92,19 @@ func ReadDevice(Dev *DeviceList) {
 }
 
 func RotateDevice(Dev *DeviceList) {
-
+	LogConsole.Info("Rotate device list...")
 	for i, d := range Dev.Devices {
-
+		//LogConsole.Info(fmt.Sprintf("Rotate device %s...", d.Name))
 		if _, err := os.Stat(d.Dirbackup); os.IsNotExist(err) {
 			_ = os.Mkdir(d.Dirbackup, os.ModePerm)
-			log.Printf("Create Folder %s for backup ", d.Dirbackup)
+			LogConsole.Info(fmt.Sprintf("Create Folder %s for backup ", d.Dirbackup))
 			continue
 		}
 		files, err := ioutil.ReadDir(d.Dirbackup)
 		if err != nil {
-			log.Printf("Error read folder backup %s, Error:%s", d.Dirbackup, err.Error())
+			es := fmt.Sprintf("Error read folder backup %s, Error:%s", d.Dirbackup, err.Error())
+			LogConsole.Error(es)
+
 			Dev.Devices[i] = Device{}
 
 			continue
@@ -159,15 +166,41 @@ func FindLastBackupFile(files []os.FileInfo, d *Device) {
 }*/
 
 func RunBackups(Dev *DeviceList) {
-	log.Printf("Backup Start ---->")
+	LogConsole.Info("Backup Start ---->")
+	wp := workerpool.New(ConfigV.GetInt("process.max"))
 	for _, d := range Dev.Devices {
-		backup(d)
-	}
+		d := d
+		var LogDevice = logrus.New()
+		wp.Submit(func() {
+			backup(d, LogDevice)
+		})
 
-	log.Printf("Backup Finish <----")
+	}
+	wp.StopWait()
+	LogConsole.Info("Backup Finish <----")
 }
 
-func backup(d Device) {
+func backup(d Device, LogDevice *logrus.Logger) {
+
+	LogConsole.Warn(fmt.Sprintf("Starting backup %s ...", d.Name))
+
+	switch ConfigV.GetString("log.format") {
+	case "text":
+		LogDevice.SetFormatter(&logrus.TextFormatter{})
+	case "json":
+		LogDevice.SetFormatter(&logrus.JSONFormatter{})
+	default:
+		LogDevice.SetFormatter(&logrus.TextFormatter{})
+	}
+	LogDevice.SetOutput(&lumberjack.Logger{
+		Filename:   fmt.Sprintf("%s/%s", d.Dirbackup, "device.log"),
+		MaxSize:    0,
+		MaxAge:     ConfigV.GetInt("log.maxday"),
+		MaxBackups: 0,
+		LocalTime:  true,
+		Compress:   false,
+	})
+
 	//var hostKey ssh.PublicKey
 	config := &ssh.ClientConfig{
 		Config: ssh.Config{},
@@ -180,34 +213,59 @@ func backup(d Device) {
 	}
 	adr := fmt.Sprintf("%s:%d", d.Address, d.PortSSH)
 	client, err := ssh.Dial("tcp", adr, config)
+	LogDevice.Info("Connect to Device...")
 	if err != nil {
-		log.Printf("Fatal error Device:%s connect to ssh %s, Error:%s", d.Name, adr, err.Error())
+
+		ers := fmt.Sprintf("Fatal error Device:%s connect to ssh %s, Error:%s", d.Name, adr, err.Error())
+		LogConsole.Error(ers)
+		LogDevice.Error(ers)
+		log.Printf(ers)
 		return
 	}
+	LogDevice.Info("Create Session Device...")
 	session, err := client.NewSession()
 	if err != nil {
-		log.Printf("Fatal error Device:%s session to ssh %s, Error:%s", d.Name, adr, err.Error())
+		ers := fmt.Sprintf("Fatal error Device:%s connect to ssh %s, Error:%s", d.Name, adr, err.Error())
+		LogConsole.Error(ers)
+		LogDevice.Error(ers)
+		log.Printf(ers)
 		return
 	}
 	defer session.Close()
 
 	var b bytes.Buffer
+	LogDevice.Info(fmt.Sprintf("Send command %s...", d.Command))
 	session.Stdout = &b
 	if err := session.Run(d.Command); err != nil {
-		log.Printf("Failed Run command:\"%s\", Error:%s", d.Command, err.Error())
+		ers := fmt.Sprintf("Failed Run command:%s, Error:%s", d.Command, err.Error())
+		LogConsole.Error(ers)
+		LogDevice.Error(ers)
+		log.Printf(ers)
+		return
 	}
 	dt := time.Now().Format("20060102T1504")
 	backupfile := fmt.Sprintf("%s/%s.rsc", d.Dirbackup, dt)
+	LogDevice.Info(fmt.Sprintf("Create file backup %s...", backupfile))
 	fn, err := os.Create(backupfile)
 	if err != nil {
-		log.Printf("Fatal error Device:%s create file %s, Error:%s", d.Name, backupfile, err.Error())
+
+		ers := fmt.Sprintf("Fatal error Device:%s create file %s, Error:%s", d.Name, backupfile, err.Error())
+		LogConsole.Error(ers)
+		LogDevice.Error(ers)
+		log.Printf(ers)
 		return
 	}
+	LogDevice.Info(fmt.Sprintf("Write to file backup %s ...", backupfile))
 	_, err = fn.Write(b.Bytes())
 	if err != nil {
-		log.Printf("Fatal error Device:%s write to file %s, Error:%s", d.Name, backupfile, err.Error())
+
+		ers := fmt.Sprintf("Fatal error Device:%s write to file %s, Error:%s", d.Name, backupfile, err.Error())
+		LogConsole.Error(ers)
+		LogDevice.Error(ers)
+		log.Printf(ers)
 		return
 	}
 
 	_ = fn.Close()
+	LogDevice.Info("Backup complite")
 }
