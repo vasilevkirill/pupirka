@@ -86,8 +86,21 @@ func ReadDevice(Dev *DeviceList) {
 			}
 
 		}
+		d.Authkey = false
+		if d.Key != "" {
+			d.Authkey = true
+		}
+
+		if d.Authkey == false && d.Password == "" && d.Key != "" {
+			d.Authkey = true
+		}
+		if d.Authkey == false && d.Password == "" && d.Key == "" && ConfigV.GetString("devicedefault.key") != "" {
+			d.Authkey = true
+			d.Key = ConfigV.GetString("devicedefault.key")
+		}
 		d.Dirbackup = fmt.Sprintf("%s/%s", ConfigV.GetString("path.backup"), d.Name)
 		Dev.Devices = append(Dev.Devices, d)
+		log.Println(d)
 	}
 }
 
@@ -112,7 +125,10 @@ func RotateDevice(Dev *DeviceList) {
 		//FindLastBackupFile(files, &Dev.Devices[i])
 
 		for _, f := range files {
-
+			re := regexp.MustCompile(`\.log$`)
+			if reg := re.FindString(f.Name()); reg != "" {
+				continue
+			}
 			now := time.Now()
 			fdifftimesecond := now.Sub(f.ModTime()).Seconds()
 			diffday := fdifftimesecond / 60 / 24
@@ -202,24 +218,42 @@ func backup(d Device, LogDevice *logrus.Logger) {
 	})
 
 	//var hostKey ssh.PublicKey
+	var auth []ssh.AuthMethod
+	if d.Authkey == false {
+		auth = append(auth, ssh.Password(d.Password))
+	} else {
+		flp := fmt.Sprintf("%s/%s", ConfigV.GetString("path.key"), d.Key)
+		key, err := ioutil.ReadFile(flp)
+		if err != nil {
+			es := fmt.Sprintf("Failed reader key:%s, Error:%s", flp, err.Error())
+			LogConsole.Error(es)
+			return
+		}
+		signer, err := ssh.ParsePrivateKey(key)
+		if err != nil {
+			es := fmt.Sprintf("unable to parse private key::%s, Error:%s", flp, err.Error())
+			LogConsole.Error(es)
+			return
+		}
+		auth = append(auth, ssh.PublicKeys(signer))
+
+	}
 	config := &ssh.ClientConfig{
-		Config: ssh.Config{},
-		User:   d.Username,
-		Auth: []ssh.AuthMethod{
-			ssh.Password(d.Password),
-		},
+		Config:          ssh.Config{},
+		User:            d.Username,
+		Auth:            auth,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         time.Duration(d.Timeout) * time.Second,
 	}
 	adr := fmt.Sprintf("%s:%d", d.Address, d.PortSSH)
 	client, err := ssh.Dial("tcp", adr, config)
+
 	LogDevice.Info("Connect to Device...")
 	if err != nil {
 
 		ers := fmt.Sprintf("Fatal error Device:%s connect to ssh %s, Error:%s", d.Name, adr, err.Error())
 		LogConsole.Error(ers)
 		LogDevice.Error(ers)
-		log.Printf(ers)
 		return
 	}
 	LogDevice.Info("Create Session Device...")
