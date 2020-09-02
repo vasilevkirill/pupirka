@@ -9,7 +9,6 @@ import (
 	"golang.org/x/crypto/ssh"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"io/ioutil"
-	"log"
 	"os"
 	"regexp"
 	"strconv"
@@ -23,14 +22,17 @@ func ScanDevice() {
 
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
-		log.Println(err.Error())
-		log.Fatalf("Program exit")
+		es := fmt.Sprintf(err.Error())
+		LogConsole.Error(es)
+		LogConsole.Error("Program exit")
+		os.Exit(1)
 	}
 
 	for _, f := range files {
 		fr := regexp.MustCompile(`\.json$`)
 		if frr := string(fr.Find([]byte(f.Name()))); frr == "" {
-			log.Printf("File %s skipped, not valid file extension", f.Name())
+			es := fmt.Sprintf("File %s skipped, not valid file extension", f.Name())
+			LogConsole.Error(es)
 			continue
 		}
 		DeviceFiles = append(DeviceFiles, f.Name())
@@ -42,21 +44,25 @@ func ReadDevice(Dev *DeviceList) {
 		filepath := fmt.Sprintf("%s/%s", ConfigV.GetString("path.devices"), f)
 		jsonFile, err := os.Open(filepath)
 		if err != nil {
-			log.Printf("Error file Open %s, Error:%s, Skip file", f, err.Error())
+			es := fmt.Sprintf("Error file Open %s, Error:%s, Skip file", f, err.Error())
+			LogConsole.Error(es)
 			continue
 		}
 		defer jsonFile.Close()
 
 		byteValueFromFile, err := ioutil.ReadAll(jsonFile)
 		if err != nil {
-			log.Printf("Error file Read %s, Error:%s, Skip file", f, err.Error())
+
+			es := fmt.Sprintf("Error file Read %s, Error:%s, Skip file", f, err.Error())
+			LogConsole.Error(es)
 			jsonFile.Close()
 			continue
 		}
 		var d Device
 		err = json.Unmarshal(byteValueFromFile, &d)
 		if err != nil {
-			log.Printf("Error Read file json  %s, Error:%s, Skip file", f, err.Error())
+			es := fmt.Sprintf("Error Read file json  %s, Error:%s, Skip file", f, err.Error())
+			LogConsole.Error(es)
 			jsonFile.Close()
 			continue
 		}
@@ -134,7 +140,8 @@ func RotateDevice(Dev *DeviceList) {
 				if len(files) > 5 {
 					err := os.Remove(f.Name())
 					if err != nil {
-						log.Printf("Error Remove file %s, Error:%s", f.Name(), err.Error())
+						es := fmt.Sprintf("Error Remove file %s, Error:%s", f.Name(), err.Error())
+						LogConsole.Error(es)
 						continue
 					}
 				}
@@ -242,7 +249,6 @@ func backup(d Device, LogDevice *logrus.Logger) {
 		ers := fmt.Sprintf("Fatal error Device:%s connect to ssh %s, Error:%s", d.Name, adr, err.Error())
 		LogConsole.Error(ers)
 		LogDevice.Error(ers)
-		log.Printf(ers)
 		return
 	}
 	defer session.Close()
@@ -254,7 +260,6 @@ func backup(d Device, LogDevice *logrus.Logger) {
 		ers := fmt.Sprintf("Failed Run command:%s, Error:%s", d.Command, err.Error())
 		LogConsole.Error(ers)
 		LogDevice.Error(ers)
-		log.Printf(ers)
 		return
 	}
 	dt := time.Now().Format("20060102T1504")
@@ -266,7 +271,6 @@ func backup(d Device, LogDevice *logrus.Logger) {
 		ers := fmt.Sprintf("Fatal error Device:%s create file %s, Error:%s", d.Name, backupfile, err.Error())
 		LogConsole.Error(ers)
 		LogDevice.Error(ers)
-		log.Printf(ers)
 		return
 	}
 	LogDevice.Info(fmt.Sprintf("Write to file backup %s ...", backupfile))
@@ -276,10 +280,9 @@ func backup(d Device, LogDevice *logrus.Logger) {
 		ers := fmt.Sprintf("Fatal error Device:%s write to file %s, Error:%s", d.Name, backupfile, err.Error())
 		LogConsole.Error(ers)
 		LogDevice.Error(ers)
-		log.Printf(ers)
 		return
 	}
 
 	_ = fn.Close()
-	LogDevice.Info("Backup complite")
+	LogDevice.Info("Backup complete")
 }
