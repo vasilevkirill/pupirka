@@ -7,6 +7,7 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 	"log"
 	"os"
+	"runtime"
 )
 
 var ConfigV = viper.New()
@@ -15,6 +16,7 @@ var LogGlobal = logrus.New()
 var LogConsole = logrus.New()
 
 func init() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	ConfigV.SetConfigType("json")
 	ConfigV.SetConfigName("pupirka.config")
 	ConfigV.AddConfigPath("./")

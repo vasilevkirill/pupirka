@@ -14,6 +14,7 @@ type Device struct {
 	Command    string `json:"command"`
 	Lastbackup string `json:"-"`
 	Authkey    bool   `json:"-" default:"false"`
+	Parent     string `json:"parent"`
 }
 type DeviceList struct {
 	Devices []Device
