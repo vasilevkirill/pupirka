@@ -103,6 +103,7 @@ func ReadDevice(Dev *DeviceList) {
 			d.Key = ConfigV.GetString("devicedefault.key")
 		}
 		d.Dirbackup = fmt.Sprintf("%s/%s", ConfigV.GetString("path.backup"), d.Name)
+		MDeviceList[d.Name] = d
 		Dev.Devices = append(Dev.Devices, d)
 	}
 }
@@ -202,14 +203,42 @@ func backup(d Device, LogDevice *logrus.Logger) {
 		LocalTime:  true,
 		Compress:   false,
 	})
+	var bytefromsshclient []byte
+	if d.Parent != "" {
+		parent, child, err := SshNeedForward(d)
+		if err != nil {
+			ers := fmt.Sprintf("Fatal error Device:%s get parent %s error: %s", d.Name, d.Parent, err.Error())
+			LogConsole.Error(ers)
+			LogDevice.Error(ers)
+			return
+		}
+		newd := SshForwardNewDevice(parent, child)
 
-	bytefromssh, err := SshClientRun(d)
-	if err != nil {
-		ers := fmt.Sprintf("Fatal error Device:%s: %s", d.Name, err.Error())
+		bytefromsshclient, err = SshClientRun(newd)
+		if err != nil {
+			ers := fmt.Sprintf("Fatal error Forward Device:%s: %s", d.Name, err.Error())
+			LogConsole.Error(ers)
+			LogDevice.Error(ers)
+			return
+		}
+	} else {
+		bytefromssh, err := SshClientRun(d)
+		if err != nil {
+			ers := fmt.Sprintf("Fatal error Device:%s: %s", d.Name, err.Error())
+			LogConsole.Error(ers)
+			LogDevice.Error(ers)
+			return
+		}
+		bytefromsshclient = bytefromssh
+	}
+
+	if bytefromsshclient == nil {
+		ers := fmt.Sprintf("Fatal error Device:%s not bytes for backup", d.Name)
 		LogConsole.Error(ers)
 		LogDevice.Error(ers)
 		return
 	}
+
 	dt := time.Now().Format("20060102T1504")
 	backupfile := fmt.Sprintf("%s/%s.rsc", d.Dirbackup, dt)
 	LogDevice.Info(fmt.Sprintf("Create file backup %s...", backupfile))
@@ -222,7 +251,7 @@ func backup(d Device, LogDevice *logrus.Logger) {
 		return
 	}
 	LogDevice.Info(fmt.Sprintf("Write to file backup %s ...", backupfile))
-	_, err = fn.Write(bytefromssh)
+	_, err = fn.Write(bytefromsshclient)
 	if err != nil {
 
 		ers := fmt.Sprintf("Fatal error Device:%s write to file %s, Error:%s", d.Name, backupfile, err.Error())
@@ -233,4 +262,5 @@ func backup(d Device, LogDevice *logrus.Logger) {
 
 	_ = fn.Close()
 	LogDevice.Info("Backup complete")
+
 }

@@ -23,11 +23,12 @@ func SshClientRun(device Device) ([]byte, error) {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         time.Duration(device.Timeout) * time.Second,
 	}
-	address := fmt.Sprintf("%s:%d", device.Address, device.PortSSH)
+	address := SshAddressFormat(&device)
 	client, err := ssh.Dial("tcp", address, config)
 	if err != nil {
 		return nil, errors.New("SshClientRun: DialSSH error:" + err.Error())
 	}
+	defer client.Close()
 	session, err := client.NewSession()
 	if err != nil {
 		return nil, errors.New("SshClientRun: NewSession error:" + err.Error())
@@ -64,4 +65,8 @@ func SshClientDeviceAuth(device Device) ([]ssh.AuthMethod, error) {
 	}
 	auth = append(auth, ssh.PublicKeys(signer))
 	return auth, nil
+}
+
+func SshAddressFormat(device *Device) string {
+	return fmt.Sprintf("%s:%d", device.Address, device.PortSSH)
 }
