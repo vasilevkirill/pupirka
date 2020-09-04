@@ -2,14 +2,17 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gammazero/workerpool"
 	logrus "github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"io/ioutil"
+	"log"
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -65,44 +68,8 @@ func ReadDevice(Dev *DeviceList) {
 			continue
 		}
 		d.Name = f[:len(f)-5]
-		if d.Timeout == 0 {
-			d.Timeout = ConfigV.GetInt("devicedefault.timeout")
-		}
-		if d.Every == 0 {
-			d.Every = ConfigV.GetInt("devicedefault.every")
-		}
-		if d.Rotate == 0 {
-			d.Rotate = ConfigV.GetInt("devicedefault.rotate")
-		}
-		if d.Command == "" {
-			d.Command = ConfigV.GetString("devicedefault.command")
-		}
-		if d.PortSSH == 0 {
-			p, err := strconv.Atoi(ConfigV.GetString("devicedefault.portshh"))
-			if err != nil {
-				d.PortSSH = 22
-			}
+		SetDefaultParameter(&d)
 
-			if err == nil || p < 655535 || p > 0 {
-				d.PortSSH = uint16(p)
-			} else {
-				d.PortSSH = 22
-			}
-
-		}
-		d.Authkey = false
-		if d.Key != "" {
-			d.Authkey = true
-		}
-
-		if d.Authkey == false && d.Password == "" && d.Key != "" {
-			d.Authkey = true
-		}
-		if d.Authkey == false && d.Password == "" && d.Key == "" && ConfigV.GetString("devicedefault.key") != "" {
-			d.Authkey = true
-			d.Key = ConfigV.GetString("devicedefault.key")
-		}
-		d.Dirbackup = fmt.Sprintf("%s/%s", ConfigV.GetString("path.backup"), d.Name)
 		MDeviceList[d.Name] = d
 		Dev.Devices = append(Dev.Devices, d)
 	}
@@ -238,32 +205,102 @@ func backup(d Device, LogDevice *logrus.Logger) {
 		LogDevice.Error(ers)
 		return
 	}
-	dt := time.Now().Format("20060102T1504")
-	if d.NameBackupPrefix != "" {
-		dt = fmt.Sprintf("%s%s", d.NameBackupPrefix, dt)
-	}
-
-	backupfile := fmt.Sprintf("%s/%s.rsc", d.Dirbackup, dt)
-	LogDevice.Info(fmt.Sprintf("Create file backup %s...", backupfile))
-	fn, err := os.Create(backupfile)
+	err := SaveBackupFile(&d, bytefromsshclient)
 	if err != nil {
-
-		ers := fmt.Sprintf("Fatal error Device:%s create file %s, Error:%s", d.Name, backupfile, err.Error())
-		LogConsole.Error(ers)
-		LogDevice.Error(ers)
-		return
-	}
-	LogDevice.Info(fmt.Sprintf("Write to file backup %s ...", backupfile))
-	_, err = fn.Write(bytefromsshclient)
-	if err != nil {
-
-		ers := fmt.Sprintf("Fatal error Device:%s write to file %s, Error:%s", d.Name, backupfile, err.Error())
+		ers := fmt.Sprintf("Bad saved config device %s Error: %s", d.Name, err.Error())
 		LogConsole.Error(ers)
 		LogDevice.Error(ers)
 		return
 	}
 
-	_ = fn.Close()
 	LogDevice.Info("Backup complete")
 
+}
+
+func SaveBackupFile(d *Device, b []byte) error {
+	backupfile := fmt.Sprintf("%s/%s", d.Dirbackup, d.BackupFileName)
+	result := b
+	if d.Clearstring != "" {
+		result = RemoveStringFromBakcup(d, b)
+	}
+	fn, err := os.Create(backupfile)
+	if err != nil {
+		return errors.New(fmt.Sprintf("SaveBackupFile: Create file Error:%s", err.Error()))
+	}
+	_, err = fn.Write(result)
+	if err != nil {
+		return errors.New(fmt.Sprintf("SaveBackupFile: Write to file Error:%s", err.Error()))
+	}
+	_ = fn.Close()
+	return nil
+}
+
+func RemoveStringFromBakcup(d *Device, b []byte) []byte {
+	regstr := fmt.Sprintf(`(?m:^%s.*$)`, d.Clearstring)
+	re := regexp.MustCompile(regstr)
+	log.Println(regstr)
+	config := re.ReplaceAllString(string(b), "")
+	config = strings.Trim(config, "\r\n")
+	return []byte(config)
+}
+
+func SetDefaultParameter(d *Device) {
+
+	if d.Timeout == 0 {
+		d.Timeout = ConfigV.GetInt("devicedefault.timeout")
+	}
+	if d.Every == 0 {
+		d.Every = ConfigV.GetInt("devicedefault.every")
+	}
+	if d.Rotate == 0 {
+		d.Rotate = ConfigV.GetInt("devicedefault.rotate")
+	}
+	if d.Command == "" {
+		d.Command = ConfigV.GetString("devicedefault.command")
+	}
+	if d.PortSSH == 0 {
+		p, err := strconv.Atoi(ConfigV.GetString("devicedefault.portshh"))
+		if err != nil {
+			d.PortSSH = 22
+		}
+
+		if err == nil || p < 655535 || p > 0 {
+			d.PortSSH = uint16(p)
+		} else {
+			d.PortSSH = 22
+		}
+
+	}
+	d.Authkey = false
+	if d.Key != "" {
+		d.Authkey = true
+	}
+
+	if d.Authkey == false && d.Password == "" && d.Key != "" {
+		d.Authkey = true
+	}
+	if d.Authkey == false && d.Password == "" && d.Key == "" && ConfigV.GetString("devicedefault.key") != "" {
+		d.Authkey = true
+		d.Key = ConfigV.GetString("devicedefault.key")
+	}
+
+	if d.TimeFormat == "" {
+		d.TimeFormat = ConfigV.GetString("devicedefault.timeformat")
+	}
+
+	if d.Prefix == "" {
+		d.Prefix = ConfigV.GetString("devicedefault.prefix")
+	}
+	if d.FileNameFormat == "" {
+		d.FileNameFormat = ConfigV.GetString("devicedefault.filenameformat")
+	}
+
+	if d.Clearstring == "" {
+		d.Clearstring = ConfigV.GetString("devicedefault.clearstring")
+	}
+	d.Dirbackup = fmt.Sprintf("%s/%s", ConfigV.GetString("path.backup"), d.Name)
+	ditetimestring := time.Now().Format(d.TimeFormat)
+	nameinprefix := strings.ReplaceAll(d.FileNameFormat, "%p", d.Prefix)
+	nameintime := strings.ReplaceAll(nameinprefix, "%t", ditetimestring)
+	d.BackupFileName = nameintime
 }
