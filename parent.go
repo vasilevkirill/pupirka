@@ -54,9 +54,10 @@ func forward(localConn net.Conn, config *ssh.ClientConfig, parentaddress string,
 	// Setup sshClientConn (type *ssh.ClientConn)
 	sshClientConn, err := ssh.Dial("tcp", parentaddress, config)
 	if err != nil {
-		log.Fatalf("ssh.Dial failed: %s", err)
+		LogConsole.Info(fmt.Sprintf("ssh.Dial failed %s ... Child %s, Parent %s", err.Error(), childaddress, parentaddress))
+		_ = sshClientConn.Close()
+		return
 	}
-
 	// Setup sshConn (type net.Conn)
 	sshConn, err := sshClientConn.Dial("tcp", childaddress)
 
@@ -64,7 +65,10 @@ func forward(localConn net.Conn, config *ssh.ClientConfig, parentaddress string,
 	go func() {
 		_, err = io.Copy(sshConn, localConn)
 		if err != nil {
-			log.Fatalf("io.Copy failed: %v", err)
+			LogConsole.Info(fmt.Sprintf("io.Copy failed %s ... Child %s, Parent %s", err.Error(), childaddress, parentaddress))
+			_ = sshConn.Close()
+			_ = sshClientConn.Close()
+			return
 		}
 	}()
 
@@ -72,9 +76,13 @@ func forward(localConn net.Conn, config *ssh.ClientConfig, parentaddress string,
 	go func() {
 		_, err = io.Copy(localConn, sshConn)
 		if err != nil {
-			log.Fatalf("io.Copy failed: %v", err)
+			LogConsole.Info(fmt.Sprintf("io.Copy failed %s ... Child %s, Parent %s", err.Error(), childaddress, parentaddress))
+			_ = sshConn.Close()
+			_ = sshClientConn.Close()
+			return
 		}
 	}()
+
 }
 
 func SshLocalGeneratePort() uint16 {
