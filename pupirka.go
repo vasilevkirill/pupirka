@@ -238,8 +238,11 @@ func backup(d Device, LogDevice *logrus.Logger) {
 		LogDevice.Error(ers)
 		return
 	}
-
 	dt := time.Now().Format("20060102T1504")
+	if d.NameBackupPrefix != "" {
+		dt = fmt.Sprintf("%s%s", d.NameBackupPrefix, dt)
+	}
+
 	backupfile := fmt.Sprintf("%s/%s.rsc", d.Dirbackup, dt)
 	LogDevice.Info(fmt.Sprintf("Create file backup %s...", backupfile))
 	fn, err := os.Create(backupfile)
