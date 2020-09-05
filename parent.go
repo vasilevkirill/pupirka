@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"io"
-	"log"
 	"math/rand"
 	"net"
 	"time"
@@ -39,16 +38,16 @@ func SshClientRunForward(parent *Device, child Device, lport uint16) {
 	localAddrString := fmt.Sprintf("localhost:%d", lport)
 	localListener, err := net.Listen("tcp", localAddrString)
 	if err != nil {
-		//todo no need fatal
-		log.Fatalf("SshClientRunForward net.Listen failed: %v", err)
+		child.LogError(fmt.Sprintf("SshClientRunForward net.Listen failed: %s", err.Error()))
+		return
 	}
 
 	for {
 		// Setup localConn (type net.Conn)
 		localConn, err := localListener.Accept()
 		if err != nil {
-			//todo no need fatal
-			log.Fatalf("SshClientRunForward listen.Accept failed: %v", err)
+			child.LogError(fmt.Sprintf("SshClientRunForward listen.Accept failed: %s", err.Error()))
+			return
 		}
 		go forward(localConn, config, SshAddressFormat(parent), SshAddressFormat(&child))
 	}
