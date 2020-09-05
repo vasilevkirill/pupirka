@@ -74,7 +74,7 @@ func (device *Device) Hook() {
 	}
 	device.LogDebug(fmt.Sprintf("Hook '%s': Command for hook '%s': Device %s", device.StatusJob, command, device.Name))
 	rVariable := []string{"%name", "%parent", "%filename", "%address", "%portssh"}
-	rValue := []string{device.Name, device.Parent, device.BackupFileName, device.Address, string(device.PortSSH)}
+	rValue := []string{device.Name, device.Parent, device.BackupFileName, device.Address, fmt.Sprintf("%d", device.PortSSH)}
 	execCommand := strings.NewReplacer(zipStringsForReplacer(rVariable, rValue)...).Replace(command)
 	device.LogDebug(fmt.Sprintf("Hook '%s': Command Compile for hook '%s': Device %s", device.StatusJob, execCommand, device.Name))
 	execComandi := strings.Fields(execCommand)
