@@ -10,7 +10,7 @@ import (
 )
 
 //connect and run command, return []byte
-func SshClientRun(device Device) ([]byte, error) {
+func SshClientRun(device *Device) ([]byte, error) {
 
 	auth, err := SshClientDeviceAuth(device)
 	if err != nil {
@@ -24,7 +24,7 @@ func SshClientRun(device Device) ([]byte, error) {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         time.Duration(device.Timeout) * time.Second,
 	}
-	address := SshAddressFormat(&device)
+	address := SshAddressFormat(device)
 	client, err := ssh.Dial("tcp", address, config)
 	if err != nil {
 		return nil, errors.New("SshClientRun: DialSSH error:" + err.Error())
@@ -47,7 +47,7 @@ func SshClientRun(device Device) ([]byte, error) {
 }
 
 //prepare auth method for client
-func SshClientDeviceAuth(device Device) ([]ssh.AuthMethod, error) {
+func SshClientDeviceAuth(device *Device) ([]ssh.AuthMethod, error) {
 	var auth []ssh.AuthMethod
 	if device.Authkey == false {
 		if device.Password == "" {

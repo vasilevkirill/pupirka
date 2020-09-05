@@ -24,6 +24,7 @@ Pupirka is a Application for simple execute command in ssh server and response s
         - [First setup](#first-setup)
     - [Quick Start](#quick-start)
     - [Device Settings](#device-all-parameter)
+      - [Device Hook](#device-hook)
     - [Config Pupirka](#puprik-config)
       - [Device Default Parameter](#devicedefault)
       - [Logging](#log)
@@ -98,7 +99,12 @@ Running command `/export` (Default) and saved response in file `./backup/mydevic
   "prefix": "rootR1-",
   "filenameformat": "%p%t.rcs",
   "key":"blabla.key",
-  "clearstring":""
+  "clearstring":"",
+  "hook": {
+      "backup": "",
+      "error": "",
+      "skip": ""
+    }
 }
 ```
 
@@ -115,7 +121,26 @@ All supported parameter in `json` file for device
  - `filename` - position `prefix` and `time` in file name. `%p` replaced `prefix` and `%t` replaced current time.
  - `key` - Private Key for used SSH Authorized, need saved private key in folder `./keys`. (**if need used SSH keys, need `password` filed delete or set `""`**)
  - `clearstring` - Specify the character to start with the line to delete.
+ - `hook` - Execute command in os.
+
 Many defaults can be changed globally in the config file `pupirka.config.json`.
+
+### Devece Hook
+
+A device can have three (3) states.
+
+ - `skip` if no need backup, if time last backup less than `every` (timefilelastbackup < every)
+ - `error` if when doing backup device return error (connected ssh, connected parent, execute command, create file and etc...)
+ - `backup` Good job, backup successfully
+
+this string can be used next arguments
+  - `%name` - name device (from filename).
+  - `%parent`- Parent if connected via ssh ssh port forward.
+  - `%filename` - filename backup
+  - `%address` - Address Device
+  - `%portssh` - Port ssh Device
+
+Pupirka **NOT** Wait execute command for devices.
 
 ## Config Pupirka
 
@@ -135,7 +160,12 @@ format: json
     "prefix": "",
     "rotate": 730,
     "timeformat": "20060102T1504",
-    "timeout": 10
+    "timeout": 10,
+    "hook": {
+        "backup": "",
+        "error": "",
+        "skip": ""
+      }
   },
   "log": {
     "format": "text",
