@@ -15,10 +15,12 @@ var MDeviceList = make(map[string]Device)
 var MLocalPort = make(map[uint16]string)
 
 func SshForwardNewDevice(parent Device, child Device) Device {
+	child.LogDebug("SshForwardNewDevice: Get new address", child.Name)
 	lport := SshLocalGeneratePort()
 	go SshClientRunForward(parent, child, lport)
 	child.Address = "localhost"
 	child.PortSSH = lport
+	child.LogDebug(fmt.Sprintf("SshForwardNewDevice: new address (%s), new port (%d)", child.Address, child.PortSSH))
 	return child
 
 }
@@ -88,6 +90,7 @@ func forward(localConn net.Conn, config *ssh.ClientConfig, parentaddress string,
 func SshLocalGeneratePort() uint16 {
 	min := 40000
 	max := 50000
+
 	for {
 		rand.Seed(time.Now().UnixNano())
 		r := rand.Intn(max-min+1) + min

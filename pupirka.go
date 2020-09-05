@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"github.com/gammazero/workerpool"
 	logrus "github.com/sirupsen/logrus"
-	"gopkg.in/natefinch/lumberjack.v2"
 	"io/ioutil"
-	"log"
 	"os"
 	"regexp"
 	"strconv"
@@ -68,6 +66,7 @@ func ReadDevice(Dev *DeviceList) {
 			continue
 		}
 		d.Name = f[:len(f)-5]
+		d.LogConfig()
 		SetDefaultParameter(&d)
 
 		MDeviceList[d.Name] = d
@@ -75,35 +74,37 @@ func ReadDevice(Dev *DeviceList) {
 	}
 }
 
-func RotateDevice(Dev *DeviceList) {
+func RotateDevice(device *DeviceList) {
 	LogConsole.Info("Rotate device list...")
-	for i, d := range Dev.Devices {
 
+	for i, d := range device.Devices {
+		d.LogDebug("RotateDevice: check direcory backup", d.Name, d.Dirbackup)
 		if _, err := os.Stat(d.Dirbackup); os.IsNotExist(err) {
 			_ = os.Mkdir(d.Dirbackup, os.ModePerm)
 			LogConsole.Info(fmt.Sprintf("Create Folder %s for backup ", d.Dirbackup))
 			continue
 		}
+		d.LogDebug("RotateDevice: read folder backup", d.Name, d.Dirbackup)
 		files, err := ioutil.ReadDir(d.Dirbackup)
 		if err != nil {
 			es := fmt.Sprintf("Error read folder backup %s, Error:%s", d.Dirbackup, err.Error())
 			LogConsole.Error(es)
 
-			Dev.Devices[i] = Device{}
+			device.Devices[i] = Device{}
 
 			continue
 		}
-
+		d.LogDebug("RotateDevice: Find old backup", d.Name, d.Dirbackup)
 		for _, f := range files {
-			re := regexp.MustCompile(`\.log$`)
-			if reg := re.FindString(f.Name()); reg != "" {
-				continue
-			}
+			d.LogDebug(fmt.Sprintf("RotateDevice: Check File %s, time %s", f.Name(), f.ModTime().String()))
 			now := time.Now()
 			fdifftimesecond := now.Sub(f.ModTime()).Seconds()
 			diffday := fdifftimesecond / 60 / 24
 			if int(diffday) > d.Rotate {
+				d.LogDebug(fmt.Sprintf("RotateDevice:File %s old backup for device %s", f.Name(), d.Name))
 				if len(files) > 5 {
+					d.LogDebug("RotateDevice: File Count > 5 in backup", d.Name)
+					d.LogDebug("RotateDevice: Remove old files", f.Name())
 					err := os.Remove(f.Name())
 					if err != nil {
 						es := fmt.Sprintf("Error Remove file %s, Error:%s", f.Name(), err.Error())
@@ -114,9 +115,9 @@ func RotateDevice(Dev *DeviceList) {
 
 			}
 			if int(fdifftimesecond) < d.Every {
-
-				Dev.Devices[i] = Device{}
-
+				d.LogDebug(fmt.Sprintf("RotateDevice: control check file time (%f), need time (%d)", fdifftimesecond, d.Every))
+				d.LogDebug("RotateDevice: Device no need backup", d.Name)
+				device.Devices[i] = Device{}
 				break
 			}
 
@@ -125,13 +126,13 @@ func RotateDevice(Dev *DeviceList) {
 	}
 
 	newDev := DeviceList{}
-	for _, d := range Dev.Devices {
+	for _, d := range device.Devices {
 		if d.Name == "" {
 			continue
 		}
 		newDev.Devices = append(newDev.Devices, d)
 	}
-	Dev.Devices = newDev.Devices
+	device.Devices = newDev.Devices
 
 }
 
@@ -140,60 +141,49 @@ func RunBackups(Dev *DeviceList) {
 	wp := workerpool.New(ConfigV.GetInt("process.max"))
 	for _, d := range Dev.Devices {
 		d := d
-		var LogDevice = logrus.New()
+		d.LogDebug("RunBackups: wait groups", d.Name)
 		wp.Submit(func() {
-			backup(d, LogDevice)
+			d.LogDebug("RunBackups: enter groups", d.Name)
+			backup(d)
 		})
-
+		d.LogDebug("RunBackups: Exit groups", d.Name)
 	}
 	wp.StopWait()
 	LogConsole.Info("Backup Finish <----")
 }
 
-func backup(d Device, LogDevice *logrus.Logger) {
+func backup(d Device) {
 
 	LogConsole.Warn(fmt.Sprintf("Starting backup %s ...", d.Name))
-
-	switch ConfigV.GetString("log.format") {
-	case "text":
-		LogDevice.SetFormatter(&logrus.TextFormatter{})
-	case "json":
-		LogDevice.SetFormatter(&logrus.JSONFormatter{})
-	default:
-		LogDevice.SetFormatter(&logrus.TextFormatter{})
-	}
-	LogDevice.SetOutput(&lumberjack.Logger{
-		Filename:   fmt.Sprintf("%s/%s", d.Dirbackup, "device.log"),
-		MaxSize:    0,
-		MaxAge:     ConfigV.GetInt("log.maxday"),
-		MaxBackups: 0,
-		LocalTime:  true,
-		Compress:   false,
-	})
+	d.LogDebug("Starting backup ", d.Name)
 	var bytefromsshclient []byte
+
 	if d.Parent != "" {
+		d.LogDebug("backup: parrent isset ", d.Name)
 		parent, child, err := SshNeedForward(d)
 		if err != nil {
 			ers := fmt.Sprintf("Fatal error Device:%s get parent %s error: %s", d.Name, d.Parent, err.Error())
 			LogConsole.Error(ers)
-			LogDevice.Error(ers)
+			d.LogError(ers)
 			return
 		}
+
 		newd := SshForwardNewDevice(parent, child)
 
 		bytefromsshclient, err = SshClientRun(newd)
 		if err != nil {
 			ers := fmt.Sprintf("Fatal error Forward Device:%s: %s", d.Name, err.Error())
 			LogConsole.Error(ers)
-			LogDevice.Error(ers)
+			d.LogError(ers)
 			return
 		}
 	} else {
+		d.LogDebug("backup: no parrent ", d.Name)
 		bytefromssh, err := SshClientRun(d)
 		if err != nil {
 			ers := fmt.Sprintf("Fatal error Device:%s: %s", d.Name, err.Error())
 			LogConsole.Error(ers)
-			LogDevice.Error(ers)
+			d.LogError(ers)
 			return
 		}
 		bytefromsshclient = bytefromssh
@@ -202,105 +192,139 @@ func backup(d Device, LogDevice *logrus.Logger) {
 	if bytefromsshclient == nil {
 		ers := fmt.Sprintf("Fatal error Device:%s not bytes for backup", d.Name)
 		LogConsole.Error(ers)
-		LogDevice.Error(ers)
+		d.LogError(ers)
 		return
 	}
 	err := SaveBackupFile(&d, bytefromsshclient)
 	if err != nil {
 		ers := fmt.Sprintf("Bad saved config device %s Error: %s", d.Name, err.Error())
 		LogConsole.Error(ers)
-		LogDevice.Error(ers)
+		d.LogError(ers)
 		return
 	}
 
-	LogDevice.Info("Backup complete")
+	d.LogInfo("Backup complete")
 
 }
 
-func SaveBackupFile(d *Device, b []byte) error {
-	backupfile := fmt.Sprintf("%s/%s", d.Dirbackup, d.BackupFileName)
+func SaveBackupFile(device *Device, b []byte) error {
+
+	device.LogDebug(fmt.Sprintf("SaveBackupFile: saved backups... %s", device.Name))
+	backupfile := fmt.Sprintf("%s/%s", device.Dirbackup, device.BackupFileName)
 	result := b
-	if d.Clearstring != "" {
-		result = RemoveStringFromBakcup(d, b)
+	if device.Clearstring != "" {
+		device.LogDebug(fmt.Sprintf("SaveBackupFile: Need clear string in config... %s", device.Name))
+		result = RemoveStringFromBakcup(device, b)
 	}
+	device.LogDebug(fmt.Sprintf("SaveBackupFile: Create file... %s", backupfile))
 	fn, err := os.Create(backupfile)
 	if err != nil {
 		return errors.New(fmt.Sprintf("SaveBackupFile: Create file Error:%s", err.Error()))
 	}
+	device.LogDebug(fmt.Sprintf("SaveBackupFile: Write to file... %s", backupfile))
 	_, err = fn.Write(result)
 	if err != nil {
 		return errors.New(fmt.Sprintf("SaveBackupFile: Write to file Error:%s", err.Error()))
 	}
+	device.LogDebug(fmt.Sprintf("SaveBackupFile: Close file... %s", backupfile))
 	_ = fn.Close()
 	return nil
 }
 
-func RemoveStringFromBakcup(d *Device, b []byte) []byte {
-	regstr := fmt.Sprintf(`(?m:^%s.*$)`, d.Clearstring)
+func RemoveStringFromBakcup(device *Device, b []byte) []byte {
+	device.LogDebug(fmt.Sprintf("RemoveStringFromBakcup: ... %s", device.Name))
+	device.LogDebug(fmt.Sprintf("RemoveStringFromBakcup: ... %s", device.Name))
+	regstr := fmt.Sprintf(`(?m:^%s.*$)`, device.Clearstring)
+	device.LogDebug(fmt.Sprintf("RemoveStringFromBakcup: regexp %s", regstr))
 	re := regexp.MustCompile(regstr)
-	log.Println(regstr)
+	device.LogDebug(fmt.Sprintf("RemoveStringFromBakcup: replace string %s", device.Name))
 	config := re.ReplaceAllString(string(b), "")
 	config = strings.Trim(config, "\r\n")
+	device.LogDebug(fmt.Sprintf("RemoveStringFromBakcup: Remove empty string %s", device.Name))
 	return []byte(config)
 }
 
 func SetDefaultParameter(d *Device) {
 
 	if d.Timeout == 0 {
+
 		d.Timeout = ConfigV.GetInt("devicedefault.timeout")
+		d.LogDebug("SetDefaultParameter: Set default Tiemout", d.Name, d.Timeout)
 	}
 	if d.Every == 0 {
+
 		d.Every = ConfigV.GetInt("devicedefault.every")
+
+		d.LogDebug("SetDefaultParameter: Set default Every", d.Name, d.Every)
 	}
 	if d.Rotate == 0 {
+
 		d.Rotate = ConfigV.GetInt("devicedefault.rotate")
+		d.LogDebug("SetDefaultParameter: Set default Rotate", d.Name, d.Rotate)
 	}
 	if d.Command == "" {
+
 		d.Command = ConfigV.GetString("devicedefault.command")
+		d.LogDebug("SetDefaultParameter: Set default Command", d.Name, d.Command)
 	}
 	if d.PortSSH == 0 {
+		d.LogDebug("SetDefaultParameter: Set default PortSSH", d.Name)
 		p, err := strconv.Atoi(ConfigV.GetString("devicedefault.portshh"))
 		if err != nil {
+
 			d.PortSSH = 22
+			d.LogDebug("SetDefaultParameter: Error parse sshport feild", d.PortSSH)
 		}
 
-		if err == nil || p < 655535 || p > 0 {
+		if err == nil || p < 65535 || p > 0 {
 			d.PortSSH = uint16(p)
+			d.LogDebug("SetDefaultParameter: Set default PortSSH", d.Name, d.PortSSH)
 		} else {
+
 			d.PortSSH = 22
+			d.LogDebug("SetDefaultParameter: Error port ssh not range 1-65535", d.Name, d.PortSSH)
 		}
 
 	}
 	d.Authkey = false
 	if d.Key != "" {
+		d.LogDebug("SetDefaultParameter: Need use private key uniq", d.Name, d.Key)
 		d.Authkey = true
 	}
 
 	if d.Authkey == false && d.Password == "" && d.Key != "" {
+		d.LogDebug("SetDefaultParameter: Need use private key uniq", d.Name, d.Key)
 		d.Authkey = true
 	}
 	if d.Authkey == false && d.Password == "" && d.Key == "" && ConfigV.GetString("devicedefault.key") != "" {
+
 		d.Authkey = true
 		d.Key = ConfigV.GetString("devicedefault.key")
+		d.LogDebug("SetDefaultParameter: Need use private key default", d.Name, d.Key)
 	}
 
 	if d.TimeFormat == "" {
 		d.TimeFormat = ConfigV.GetString("devicedefault.timeformat")
+		d.LogDebug("SetDefaultParameter: Set default timeformat", d.Name, d.TimeFormat)
 	}
 
 	if d.Prefix == "" {
 		d.Prefix = ConfigV.GetString("devicedefault.prefix")
+		d.LogDebug("SetDefaultParameter: Set default Prefix", d.Name, d.Prefix)
 	}
 	if d.FileNameFormat == "" {
 		d.FileNameFormat = ConfigV.GetString("devicedefault.filenameformat")
+		d.LogDebug("SetDefaultParameter: Set default FileNameFormat", d.Name, d.FileNameFormat)
 	}
 
 	if d.Clearstring == "" {
 		d.Clearstring = ConfigV.GetString("devicedefault.clearstring")
+		d.LogDebug("SetDefaultParameter: Set default Clearstring", d.Name, d.Clearstring)
 	}
 	d.Dirbackup = fmt.Sprintf("%s/%s", ConfigV.GetString("path.backup"), d.Name)
 	ditetimestring := time.Now().Format(d.TimeFormat)
 	nameinprefix := strings.ReplaceAll(d.FileNameFormat, "%p", d.Prefix)
 	nameintime := strings.ReplaceAll(nameinprefix, "%t", ditetimestring)
 	d.BackupFileName = nameintime
+	d.LogDebug("SetDefaultParameter: Set default BackupFileName", d.Name, d.BackupFileName)
 }

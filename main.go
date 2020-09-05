@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"time"
 )
 
 var ConfigV = viper.New()
@@ -36,7 +37,10 @@ func init() {
 	ConfigV.SetDefault("devicedefault.clearstring", "")
 	ConfigV.SetDefault("process.max", 10)
 	ConfigV.SetDefault("log.maxday", 1)
+	ConfigV.SetDefault("log.maxsize", 10)
+	ConfigV.SetDefault("log.maxbackups", 10)
 	ConfigV.SetDefault("log.format", "text")
+	ConfigV.SetDefault("log.level", "info")
 	if err := ConfigV.ReadInConfig(); err != nil { // error read config
 		log.Println(err)
 		ConfigV.SafeWriteConfig()
@@ -50,6 +54,14 @@ func init() {
 		}
 	}
 	LogConsole.SetOutput(os.Stdout)
+	switch ConfigV.GetString("log.level") {
+	case "info":
+		LogConsole.SetLevel(logrus.InfoLevel)
+	case "debug":
+		LogConsole.SetLevel(logrus.DebugLevel)
+	default:
+		LogConsole.SetLevel(logrus.InfoLevel)
+	}
 	LogGlobal.SetOutput(&lumberjack.Logger{
 		Filename:   fmt.Sprintf("%s/%s", ConfigV.GetString("path.log"), "pupirka.log"),
 		MaxSize:    0,
@@ -58,6 +70,7 @@ func init() {
 		LocalTime:  true,
 		Compress:   false,
 	})
+	LogGlobal.SetLevel(LogConsole.GetLevel())
 
 }
 
@@ -66,6 +79,7 @@ func main() {
 	LogConsole.Info("Scan Devices....")
 	ScanDevice()
 	var Dev DeviceList
+
 	ReadDevice(&Dev)
 	if len(Dev.Devices) == 0 {
 		LogConsole.Info("Not Device for backup")
@@ -78,5 +92,7 @@ func main() {
 		LogConsole.Info("All Device backups actual")
 		os.Exit(0)
 	}
+	time.Sleep(5 * time.Second)
 	RunBackups(&Dev)
+
 }
