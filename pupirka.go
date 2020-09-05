@@ -89,9 +89,7 @@ func RotateDevice(device *DeviceList) {
 		if err != nil {
 			es := fmt.Sprintf("Error read folder backup %s, Error:%s", d.Dirbackup, err.Error())
 			LogConsole.Error(es)
-
-			device.Devices[i] = Device{}
-
+			device.Devices[i].StatusJob = "skip"
 			continue
 		}
 		d.LogDebug("RotateDevice: Find old backup", d.Name, d.Dirbackup)
@@ -117,34 +115,41 @@ func RotateDevice(device *DeviceList) {
 			if int(fdifftimesecond) < d.Every {
 				d.LogDebug(fmt.Sprintf("RotateDevice: control check file time (%f), need time (%d)", fdifftimesecond, d.Every))
 				d.LogDebug("RotateDevice: Device no need backup", d.Name)
-				device.Devices[i] = Device{}
+				device.Devices[i].StatusJob = "skip"
 				break
 			}
 
 		}
 
 	}
-
-	newDev := DeviceList{}
-	for _, d := range device.Devices {
-		if d.Name == "" {
-			continue
+	/*
+		newDev := DeviceList{}
+		for _, d := range device.Devices {
+			if d.Name == "" {
+				continue
+			}
+			newDev.Devices = append(newDev.Devices, d)
 		}
-		newDev.Devices = append(newDev.Devices, d)
-	}
-	device.Devices = newDev.Devices
-
+		device.Devices = newDev.Devices
+	*/
 }
 
 func RunBackups(Dev *DeviceList) {
 	LogConsole.Info("Backup Start ---->")
+	//todo need create dynamic group, curent group 10 and wait all execute after next 10.
+	//todo need if one exit group, send one next to group
 	wp := workerpool.New(ConfigV.GetInt("process.max"))
 	for _, d := range Dev.Devices {
 		d := d
+		if d.StatusJob == "skip" {
+			d.Hook()
+			continue
+		}
 		d.LogDebug("RunBackups: wait groups", d.Name)
 		wp.Submit(func() {
 			d.LogDebug("RunBackups: enter groups", d.Name)
-			backup(d)
+			backup(&d)
+			d.Hook()
 		})
 		d.LogDebug("RunBackups: Exit groups", d.Name)
 	}
@@ -152,58 +157,63 @@ func RunBackups(Dev *DeviceList) {
 	LogConsole.Info("Backup Finish <----")
 }
 
-func backup(d Device) {
+func backup(device *Device) {
 
-	LogConsole.Warn(fmt.Sprintf("Starting backup %s ...", d.Name))
-	d.LogDebug("Starting backup ", d.Name)
+	LogConsole.Warn(fmt.Sprintf("Starting backup %s ...", device.Name))
+	device.LogDebug("Starting backup ", device.Name)
 	var bytefromsshclient []byte
 
-	if d.Parent != "" {
-		d.LogDebug("backup: parrent isset ", d.Name)
-		parent, child, err := SshNeedForward(d)
+	if device.Parent != "" {
+		device.LogDebug("backup: parrent isset ", device.Name)
+		parent, child, err := SshNeedForward(device)
 		if err != nil {
-			ers := fmt.Sprintf("Fatal error Device:%s get parent %s error: %s", d.Name, d.Parent, err.Error())
+			ers := fmt.Sprintf("Fatal error Device:%s get parent %s error: %s", device.Name, device.Parent, err.Error())
 			LogConsole.Error(ers)
-			d.LogError(ers)
+			device.LogError(ers)
+			device.StatusJob = "error"
 			return
 		}
 
 		newd := SshForwardNewDevice(parent, child)
 
-		bytefromsshclient, err = SshClientRun(newd)
+		bytefromsshclient, err = SshClientRun(&newd)
 		if err != nil {
-			ers := fmt.Sprintf("Fatal error Forward Device:%s: %s", d.Name, err.Error())
+			ers := fmt.Sprintf("Fatal error Forward Device:%s: %s", device.Name, err.Error())
 			LogConsole.Error(ers)
-			d.LogError(ers)
+			device.LogError(ers)
+			device.StatusJob = "error"
 			return
 		}
 	} else {
-		d.LogDebug("backup: no parrent ", d.Name)
-		bytefromssh, err := SshClientRun(d)
+		device.LogDebug("backup: no parrent ", device.Name)
+		bytefromssh, err := SshClientRun(device)
 		if err != nil {
-			ers := fmt.Sprintf("Fatal error Device:%s: %s", d.Name, err.Error())
+			ers := fmt.Sprintf("Fatal error Device:%s: %s", device.Name, err.Error())
 			LogConsole.Error(ers)
-			d.LogError(ers)
+			device.LogError(ers)
+			device.StatusJob = "error"
 			return
 		}
 		bytefromsshclient = bytefromssh
 	}
 
 	if bytefromsshclient == nil {
-		ers := fmt.Sprintf("Fatal error Device:%s not bytes for backup", d.Name)
+		ers := fmt.Sprintf("Fatal error Device:%s not bytes for backup", device.Name)
 		LogConsole.Error(ers)
-		d.LogError(ers)
+		device.LogError(ers)
+		device.StatusJob = "error"
 		return
 	}
-	err := SaveBackupFile(&d, bytefromsshclient)
+	err := SaveBackupFile(device, bytefromsshclient)
 	if err != nil {
-		ers := fmt.Sprintf("Bad saved config device %s Error: %s", d.Name, err.Error())
+		ers := fmt.Sprintf("Bad saved config device %s Error: %s", device.Name, err.Error())
 		LogConsole.Error(ers)
-		d.LogError(ers)
+		device.LogError(ers)
+		device.StatusJob = "error"
 		return
 	}
-
-	d.LogInfo("Backup complete")
+	device.StatusJob = "backup"
+	device.LogInfo("Backup complete")
 
 }
 
@@ -284,7 +294,6 @@ func SetDefaultParameter(d *Device) {
 			d.PortSSH = 22
 			d.LogDebug("SetDefaultParameter: Error port ssh not range 1-65535", d.Name, d.PortSSH)
 		}
-
 	}
 	d.Authkey = false
 	if d.Key != "" {
@@ -327,4 +336,16 @@ func SetDefaultParameter(d *Device) {
 	nameintime := strings.ReplaceAll(nameinprefix, "%t", ditetimestring)
 	d.BackupFileName = nameintime
 	d.LogDebug("SetDefaultParameter: Set default BackupFileName", d.Name, d.BackupFileName)
+	if d.DeviceHooks.Error == "" {
+		d.DeviceHooks.Error = ConfigV.GetString("devicedefault.hook.error")
+		d.LogDebug(fmt.Sprintf("SetDefaultParameter: Set default devicedefault.hook.error Velue %s in Device %s", d.DeviceHooks.Error, d.Name))
+	}
+	if d.DeviceHooks.Backup == "" {
+		d.DeviceHooks.Backup = ConfigV.GetString("devicedefault.hook.backup")
+		d.LogDebug(fmt.Sprintf("SetDefaultParameter: Set default devicedefault.hook.backup Velue %s in Device %s", d.DeviceHooks.Backup, d.Name))
+	}
+	if d.DeviceHooks.Skip == "" {
+		d.DeviceHooks.Skip = ConfigV.GetString("devicedefault.hook.skip")
+		d.LogDebug(fmt.Sprintf("SetDefaultParameter: Set default devicedefault.hook.skip Velue %s in Device %s", d.DeviceHooks.Skip, d.Name))
+	}
 }

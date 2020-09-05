@@ -7,7 +7,9 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 	"log"
 	"os"
+	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -35,12 +37,17 @@ func init() {
 	ConfigV.SetDefault("devicedefault.prefix", "")
 	ConfigV.SetDefault("devicedefault.filenameformat", "%p%t.rcs")
 	ConfigV.SetDefault("devicedefault.clearstring", "")
+	ConfigV.SetDefault("devicedefault.hook.skip", "")
+	ConfigV.SetDefault("devicedefault.hook.backup", "")
+	ConfigV.SetDefault("devicedefault.hook.error", "")
 	ConfigV.SetDefault("process.max", 10)
 	ConfigV.SetDefault("log.maxday", 1)
 	ConfigV.SetDefault("log.maxsize", 10)
 	ConfigV.SetDefault("log.maxbackups", 10)
 	ConfigV.SetDefault("log.format", "text")
 	ConfigV.SetDefault("log.level", "info")
+	ConfigV.SetDefault("global.hook.pre", "")
+	ConfigV.SetDefault("global.hook.post", "")
 	if err := ConfigV.ReadInConfig(); err != nil { // error read config
 		log.Println(err)
 		ConfigV.SafeWriteConfig()
@@ -77,6 +84,8 @@ func init() {
 func main() {
 	LogConsole.Info("Starting....")
 	LogConsole.Info("Scan Devices....")
+
+	RunnningGlobalHookPre()
 	ScanDevice()
 	var Dev DeviceList
 
@@ -94,5 +103,44 @@ func main() {
 	}
 	time.Sleep(5 * time.Second)
 	RunBackups(&Dev)
+	RunnningGlobalHookPost()
+}
 
+func RunnningGlobalHookPre() {
+	LogConsole.Info("Running Hook....")
+	command := ConfigV.GetString("global.hook.pre")
+	if command == "" {
+		LogConsole.Info("Running Not Hook")
+		return
+	}
+
+	o, err := RunCommandInOS(command)
+	if err != nil {
+		LogConsole.Warn(fmt.Sprintf("Error HOOK %s", err.Error()))
+		return
+	}
+	LogConsole.Info(fmt.Sprintf("Result HOOK %s", o))
+}
+func RunnningGlobalHookPost() {
+	command := ConfigV.GetString("global.hook.post")
+	LogConsole.Info("Running Hook....")
+	if command == "" {
+		LogConsole.Info("Running Not Hook")
+		return
+	}
+
+	o, err := RunCommandInOS(command)
+	if err != nil {
+		LogConsole.Warn(fmt.Sprintf("Error HOOK %s", err.Error()))
+		return
+	}
+	LogConsole.Info(fmt.Sprintf("Result HOOK %s", o))
+}
+func RunCommandInOS(command string) (string, error) {
+	execComandi := strings.Fields(command)
+	res, err := exec.Command(execComandi[0], execComandi[1:]...).Output()
+	if err != nil {
+		return "", err
+	}
+	return string(res), nil
 }

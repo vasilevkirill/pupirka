@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"golang.org/x/crypto/ssh"
 	"io"
-	"log"
 	"math/rand"
 	"net"
 	"time"
@@ -17,7 +16,7 @@ var MLocalPort = make(map[uint16]string)
 func SshForwardNewDevice(parent Device, child Device) Device {
 	child.LogDebug("SshForwardNewDevice: Get new address", child.Name)
 	lport := SshLocalGeneratePort()
-	go SshClientRunForward(parent, child, lport)
+	go SshClientRunForward(&parent, child, lport)
 	child.Address = "localhost"
 	child.PortSSH = lport
 	child.LogDebug(fmt.Sprintf("SshForwardNewDevice: new address (%s), new port (%d)", child.Address, child.PortSSH))
@@ -25,7 +24,7 @@ func SshForwardNewDevice(parent Device, child Device) Device {
 
 }
 
-func SshClientRunForward(parent Device, child Device, lport uint16) {
+func SshClientRunForward(parent *Device, child Device, lport uint16) {
 	auth, _ := SshClientDeviceAuth(parent)
 
 	config := &ssh.ClientConfig{
@@ -39,16 +38,18 @@ func SshClientRunForward(parent Device, child Device, lport uint16) {
 	localAddrString := fmt.Sprintf("localhost:%d", lport)
 	localListener, err := net.Listen("tcp", localAddrString)
 	if err != nil {
-		log.Fatalf("SshClientRunForward net.Listen failed: %v", err)
+		child.LogError(fmt.Sprintf("SshClientRunForward net.Listen failed: %s", err.Error()))
+		return
 	}
 
 	for {
 		// Setup localConn (type net.Conn)
 		localConn, err := localListener.Accept()
 		if err != nil {
-			log.Fatalf("SshClientRunForward listen.Accept failed: %v", err)
+			child.LogError(fmt.Sprintf("SshClientRunForward listen.Accept failed: %s", err.Error()))
+			return
 		}
-		go forward(localConn, config, SshAddressFormat(&parent), SshAddressFormat(&child))
+		go forward(localConn, config, SshAddressFormat(parent), SshAddressFormat(&child))
 	}
 }
 
@@ -102,11 +103,12 @@ func SshLocalGeneratePort() uint16 {
 	}
 }
 
-func SshNeedForward(device Device) (Device, Device, error) {
+func SshNeedForward(device *Device) (Device, Device, error) {
 
 	if _, ok := MDeviceList[device.Parent]; !ok {
 		return Device{}, Device{}, errors.New("SshNeedForward: no isset parent device")
 	}
 	parent := MDeviceList[device.Parent]
-	return parent, device, nil
+	dev := *device
+	return parent, dev, nil
 }
