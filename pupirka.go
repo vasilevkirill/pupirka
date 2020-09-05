@@ -136,6 +136,8 @@ func RotateDevice(device *DeviceList) {
 
 func RunBackups(Dev *DeviceList) {
 	LogConsole.Info("Backup Start ---->")
+	//todo need create dynamic group, curent group 10 and wait all execute after next 10.
+	//todo need if one exit group, send one next to group
 	wp := workerpool.New(ConfigV.GetInt("process.max"))
 	for _, d := range Dev.Devices {
 		d := d
