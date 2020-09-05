@@ -30,6 +30,7 @@ Pupirka is a Application for simple execute command in ssh server and response s
       - [Logging](#log)
       - [Path](#path)
       - [Proccess](#proccess)
+      - [Global Hooks][#global-hooks]
     - [Time Format](#time-format)
 ---
 
@@ -179,6 +180,12 @@ format: json
   },
   "process": {
     "max": 10
+  },
+  "global": {
+    "hook": {
+      "post": "",
+      "pre": ""
+    }
   }
 }
 ```
@@ -207,6 +214,13 @@ Pupirka created all folder if not found.
 
 ### Process
   - `max` - in order not to overload the CPU, Pupirka it will back up in groups of the specified count.
+
+
+### Global Hooks
+   Running and wait execute custom command.
+   - `pre` running before backups
+   - `post` running after all backups    
+
 ## Time Format
 
 Used specified Golang format
