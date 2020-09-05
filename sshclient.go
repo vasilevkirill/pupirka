@@ -30,13 +30,13 @@ func SshClientRun(device Device) ([]byte, error) {
 		return nil, errors.New("SshClientRun: DialSSH error:" + err.Error())
 	}
 	defer client.Close()
-	device.LogDebug(fmt.Sprintf("SshClientRun: ssh Dial running", device.Name))
+	device.LogDebug(fmt.Sprintf("SshClientRun: ssh Dial running %s", device.Name))
 	session, err := client.NewSession()
 	if err != nil {
 		return nil, errors.New("SshClientRun: NewSession error:" + err.Error())
 	}
 	defer session.Close()
-	device.LogDebug(fmt.Sprintf("SshClientRun: ssh session running", device.Name))
+	device.LogDebug(fmt.Sprintf("SshClientRun: ssh session running %s", device.Name))
 	var b bytes.Buffer
 	session.Stdout = &b
 	if err := session.Run(device.Command); err != nil {
