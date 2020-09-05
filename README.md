@@ -30,7 +30,7 @@ Pupirka is a Application for simple execute command in ssh server and response s
       - [Logging](#log)
       - [Path](#path)
       - [Proccess](#proccess)
-      - [Global Hooks][#global-hooks]
+      - [Global Hooks](#global-hooks)
     - [Time Format](#time-format)
 ---
 
