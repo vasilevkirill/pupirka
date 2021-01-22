@@ -9,6 +9,17 @@ import (
 	"time"
 )
 
+var sshkkeysAlgo = []string{
+	"diffie-hellman-group1-sha1",
+	"diffie-hellman-group14-sha1",
+	"ecdh-sha2-nistp256",
+	"ecdh-sha2-nistp384",
+	"ecdh-sha2-nistp521",
+	"diffie-hellman-group-exchange-sha1",
+	"diffie-hellman-group-exchange-sha256",
+	"curve25519-sha256@libssh.org",
+}
+
 //connect and run command, return []byte
 func SshClientRun(device *Device) ([]byte, error) {
 
@@ -17,12 +28,14 @@ func SshClientRun(device *Device) ([]byte, error) {
 		return []byte{}, err
 	}
 	device.LogDebug(fmt.Sprintf("SshClientRun: Get auth (%t)", auth))
+
 	config := &ssh.ClientConfig{
-		Config:          ssh.Config{},
-		User:            device.Username,
-		Auth:            auth,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         time.Duration(device.Timeout) * time.Second,
+		Config:            ssh.Config{},
+		User:              device.Username,
+		Auth:              auth,
+		HostKeyCallback:   ssh.InsecureIgnoreHostKey(),
+		Timeout:           time.Duration(device.Timeout) * time.Second,
+		HostKeyAlgorithms: sshkkeysAlgo,
 	}
 	address := SshAddressFormat(device)
 	client, err := ssh.Dial("tcp", address, config)
