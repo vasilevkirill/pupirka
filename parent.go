@@ -28,7 +28,9 @@ func SshClientRunForward(parent *Device, child Device, lport uint16) {
 	auth, _ := SshClientDeviceAuth(parent)
 
 	config := &ssh.ClientConfig{
-		Config:          ssh.Config{},
+		Config: ssh.Config{
+			KeyExchanges: sshkkeysAlgo,
+		},
 		User:            parent.Username,
 		Auth:            auth,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),

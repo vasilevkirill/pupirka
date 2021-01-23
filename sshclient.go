@@ -30,12 +30,13 @@ func SshClientRun(device *Device) ([]byte, error) {
 	device.LogDebug(fmt.Sprintf("SshClientRun: Get auth (%t)", auth))
 
 	config := &ssh.ClientConfig{
-		Config:            ssh.Config{},
-		User:              device.Username,
-		Auth:              auth,
-		HostKeyCallback:   ssh.InsecureIgnoreHostKey(),
-		Timeout:           time.Duration(device.Timeout) * time.Second,
-		HostKeyAlgorithms: sshkkeysAlgo,
+		Config: ssh.Config{
+			KeyExchanges: sshkkeysAlgo,
+		},
+		User:            device.Username,
+		Auth:            auth,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         time.Duration(device.Timeout) * time.Second,
 	}
 	address := SshAddressFormat(device)
 	client, err := ssh.Dial("tcp", address, config)
