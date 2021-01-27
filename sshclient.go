@@ -19,6 +19,12 @@ var sshkkeysAlgo = []string{
 	"diffie-hellman-group-exchange-sha256",
 	"curve25519-sha256@libssh.org",
 }
+var sshChippers = []string{
+	"aes128-gcm@openssh.com",
+	"cast128-cbc",
+	"aes128-ctr", "aes192-ctr", "aes256-ctr",
+	"3des-cbc", "blowfish-cbc", "twofish-cbc", "twofish256-cbc", "twofish192-cbc", "twofish128-cbc", "aes256-cbc", "aes192-cbc", "aes128-cbc", "arcfour",
+}
 
 //connect and run command, return []byte
 func SshClientRun(device *Device) ([]byte, error) {
@@ -32,6 +38,7 @@ func SshClientRun(device *Device) ([]byte, error) {
 	config := &ssh.ClientConfig{
 		Config: ssh.Config{
 			KeyExchanges: sshkkeysAlgo,
+			Ciphers:      sshChippers,
 		},
 		User:            device.Username,
 		Auth:            auth,

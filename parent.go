@@ -30,6 +30,7 @@ func SshClientRunForward(parent *Device, child Device, lport uint16) {
 	config := &ssh.ClientConfig{
 		Config: ssh.Config{
 			KeyExchanges: sshkkeysAlgo,
+			Ciphers:      sshChippers,
 		},
 		User:            parent.Username,
 		Auth:            auth,
