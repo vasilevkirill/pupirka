@@ -81,7 +81,7 @@ func RotateDevice(device *DeviceList) {
 		d.LogDebug("RotateDevice: check directory backup", d.Name, d.Dirbackup)
 		if _, err := os.Stat(d.Dirbackup); os.IsNotExist(err) {
 			_ = os.Mkdir(d.Dirbackup, os.ModePerm)
-			LogConsole.Info(fmt.Sprintf("Create Folder %s for backup ", d.Dirbackup))
+			LogConsole.Info(fmt.Sprintf("Create Folder %s for backup", d.Dirbackup))
 			continue
 		}
 		d.LogDebug("RotateDevice: read folder backup", d.Name, d.Dirbackup)
@@ -100,7 +100,7 @@ func RotateDevice(device *DeviceList) {
 			diffday := fdifftimesecond / 60 / 60 / 24
 			d.LogDebug(fmt.Sprintf("DiffDay: %f", diffday))
 			if int(diffday) > d.Rotate {
-				d.LogDebug(fmt.Sprintf("RotateDevice:File %s old backup for device %s", f.Name(), d.Name))
+				d.LogDebug(fmt.Sprintf("RotateDevice: File %s old backup for device %s", f.Name(), d.Name))
 				if len(files) > 5 {
 					d.LogDebug("RotateDevice: File Count > 5 in backup", d.Name)
 					d.LogDebug("RotateDevice: Remove old files", f.Name())
@@ -260,23 +260,23 @@ func SetDefaultParameter(d *Device) {
 	if d.Timeout == 0 {
 
 		d.Timeout = ConfigV.GetInt("devicedefault.timeout")
-		d.LogDebug("SetDefaultParameter: Set default Timeout", d.Name, d.Timeout)
+		d.LogDebug("SetDefaultParameter: Set default Timeout ", d.Name, d.Timeout)
 	}
 	if d.Every == 0 {
 
 		d.Every = ConfigV.GetInt("devicedefault.every")
 
-		d.LogDebug("SetDefaultParameter: Set default Every", d.Name, d.Every)
+		d.LogDebug("SetDefaultParameter: Set default Every ", d.Name, d.Every)
 	}
 	if d.Rotate == 0 {
 
 		d.Rotate = ConfigV.GetInt("devicedefault.rotate")
-		d.LogDebug("SetDefaultParameter: Set default Rotate", d.Name, d.Rotate)
+		d.LogDebug("SetDefaultParameter: Set default Rotate ", d.Name, d.Rotate)
 	}
 	if d.Command == "" {
 
 		d.Command = ConfigV.GetString("devicedefault.command")
-		d.LogDebug("SetDefaultParameter: Set default Command", d.Name, d.Command)
+		d.LogDebug("SetDefaultParameter: Set default Command ", d.Name, d.Command)
 	}
 	if d.PortSSH == 0 {
 		d.LogDebug("SetDefaultParameter: Set default PortSSH", d.Name)
@@ -289,7 +289,7 @@ func SetDefaultParameter(d *Device) {
 
 		if err == nil || p < 65535 || p > 0 {
 			d.PortSSH = uint16(p)
-			d.LogDebug("SetDefaultParameter: Set default PortSSH", d.Name, d.PortSSH)
+			d.LogDebug("SetDefaultParameter: Set default PortSSH ", d.Name, d.PortSSH)
 		} else {
 
 			d.PortSSH = 22
@@ -298,24 +298,24 @@ func SetDefaultParameter(d *Device) {
 	}
 	d.Authkey = false
 	if d.Key != "" {
-		d.LogDebug("SetDefaultParameter: Need use private key uniq", d.Name, d.Key)
+		d.LogDebug("SetDefaultParameter: Need use private key uniq ", d.Name, d.Key)
 		d.Authkey = true
 	}
 
 	if d.Authkey == false && d.Password == "" && d.Key != "" {
-		d.LogDebug("SetDefaultParameter: Need use private key uniq", d.Name, d.Key)
+		d.LogDebug("SetDefaultParameter: Need use private key uniq ", d.Name, d.Key)
 		d.Authkey = true
 	}
 	if d.Authkey == false && d.Password == "" && d.Key == "" && ConfigV.GetString("devicedefault.key") != "" {
 
 		d.Authkey = true
 		d.Key = ConfigV.GetString("devicedefault.key")
-		d.LogDebug("SetDefaultParameter: Need use private key default", d.Name, d.Key)
+		d.LogDebug("SetDefaultParameter: Need use private key default ", d.Name, d.Key)
 	}
 
 	if d.TimeFormat == "" {
 		d.TimeFormat = ConfigV.GetString("devicedefault.timeformat")
-		d.LogDebug("SetDefaultParameter: Set default time format", d.Name, d.TimeFormat)
+		d.LogDebug("SetDefaultParameter: Set default time format ", d.Name, d.TimeFormat)
 	}
 
 	if d.Prefix == "" {
