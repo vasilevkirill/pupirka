@@ -164,7 +164,7 @@ func backup(device *Device) {
 	var bytefromsshclient []byte
 
 	if device.Parent != "" {
-		device.LogDebug("backup: parrent isset ", device.Name)
+		device.LogDebug("backup: parent exist ", device.Name)
 		parent, child, err := SshNeedForward(device)
 		if err != nil {
 			ers := fmt.Sprintf("Fatal error Device:%s get parent %s error: %s", device.Name, device.Parent, err.Error())
@@ -185,7 +185,7 @@ func backup(device *Device) {
 			return
 		}
 	} else {
-		device.LogDebug("backup: no parrent ", device.Name)
+		device.LogDebug("backup: no parent ", device.Name)
 		bytefromssh, err := SshClientRun(device)
 		if err != nil {
 			ers := fmt.Sprintf("Fatal error Device:%s: %s", device.Name, err.Error())
@@ -259,7 +259,7 @@ func SetDefaultParameter(d *Device) {
 	if d.Timeout == 0 {
 
 		d.Timeout = ConfigV.GetInt("devicedefault.timeout")
-		d.LogDebug("SetDefaultParameter: Set default Tiemout", d.Name, d.Timeout)
+		d.LogDebug("SetDefaultParameter: Set default Timeout", d.Name, d.Timeout)
 	}
 	if d.Every == 0 {
 
@@ -283,7 +283,7 @@ func SetDefaultParameter(d *Device) {
 		if err != nil {
 
 			d.PortSSH = 22
-			d.LogDebug("SetDefaultParameter: Error parse sshport feild", d.PortSSH)
+			d.LogDebug("SetDefaultParameter: Error parse ssh port field", d.PortSSH)
 		}
 
 		if err == nil || p < 65535 || p > 0 {
@@ -314,7 +314,7 @@ func SetDefaultParameter(d *Device) {
 
 	if d.TimeFormat == "" {
 		d.TimeFormat = ConfigV.GetString("devicedefault.timeformat")
-		d.LogDebug("SetDefaultParameter: Set default timeformat", d.Name, d.TimeFormat)
+		d.LogDebug("SetDefaultParameter: Set default time format", d.Name, d.TimeFormat)
 	}
 
 	if d.Prefix == "" {
@@ -328,7 +328,7 @@ func SetDefaultParameter(d *Device) {
 
 	if d.Clearstring == "" {
 		d.Clearstring = ConfigV.GetString("devicedefault.clearstring")
-		d.LogDebug("SetDefaultParameter: Set default Clearstring", d.Name, d.Clearstring)
+		d.LogDebug("SetDefaultParameter: Set default Clear string", d.Name, d.Clearstring)
 	}
 	d.Dirbackup = fmt.Sprintf("%s/%s", ConfigV.GetString("path.backup"), d.Name)
 	ditetimestring := time.Now().Format(d.TimeFormat)
