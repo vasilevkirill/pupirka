@@ -98,16 +98,20 @@ func RotateDevice(device *DeviceList) {
 			now := time.Now()
 			fdifftimesecond := now.Sub(f.ModTime()).Seconds()
 			diffday := fdifftimesecond / 60 / 60 / 24
-			d.LogDebug(fmt.Sprintf("DiffDay: %f", diffday))
 			if int(diffday) > d.Rotate {
 				d.LogDebug(fmt.Sprintf("RotateDevice: File %s old backup for device %s", f.Name(), d.Name))
 				if len(files) > 5 {
 					d.LogDebug("RotateDevice: File Count > 5 in backup", d.Name)
 					d.LogDebug("RotateDevice: Remove old files", f.Name())
-					err := os.Remove(fmt.Sprintf("%s/%s", d.Dirbackup, f.Name()))
+					filename := fmt.Sprintf("%s/%s", d.Dirbackup, f.Name())
+					err := os.Remove(filename)
 					if err != nil {
 						es := fmt.Sprintf("Error Remove file %s, Error:%s", f.Name(), err.Error())
 						LogConsole.Error(es)
+						continue
+					}
+					if err := gitClient.RemoveFile(filename); err != nil {
+						d.LogWarn(err)
 						continue
 					}
 				}
@@ -239,6 +243,11 @@ func SaveBackupFile(device *Device, b []byte) error {
 	}
 	device.LogDebug(fmt.Sprintf("SaveBackupFile: Close file... %s", backupfile))
 	_ = fn.Close()
+	if err := gitClient.AddFile(backupfile); err != nil {
+		device.LogWarn(err)
+		LogConsole.Error(err)
+
+	}
 	return nil
 }
 
@@ -335,7 +344,8 @@ func SetDefaultParameter(d *Device) {
 	ditetimestring := time.Now().Format(d.TimeFormat)
 	nameinprefix := strings.ReplaceAll(d.FileNameFormat, "%p", d.Prefix)
 	nameintime := strings.ReplaceAll(nameinprefix, "%t", ditetimestring)
-	d.BackupFileName = nameintime
+	nameinname := strings.ReplaceAll(nameintime, "%n", d.Name)
+	d.BackupFileName = nameinname
 	d.LogDebug("SetDefaultParameter: Set default BackupFileName", d.Name, d.BackupFileName)
 	if d.DeviceHooks.Error == "" {
 		d.DeviceHooks.Error = ConfigV.GetString("devicedefault.hook.error")
