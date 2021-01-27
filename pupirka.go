@@ -103,7 +103,7 @@ func RotateDevice(device *DeviceList) {
 				if len(files) > 5 {
 					d.LogDebug("RotateDevice: File Count > 5 in backup", d.Name)
 					d.LogDebug("RotateDevice: Remove old files", f.Name())
-					err := os.Remove(f.Name())
+					err := os.Remove(fmt.Sprintf("%s/%s", d.Dirbackup, f.Name()))
 					if err != nil {
 						es := fmt.Sprintf("Error Remove file %s, Error:%s", f.Name(), err.Error())
 						LogConsole.Error(es)
