@@ -78,7 +78,7 @@ func RotateDevice(device *DeviceList) {
 	LogConsole.Info("Rotate device list...")
 
 	for i, d := range device.Devices {
-		d.LogDebug("RotateDevice: check direcory backup", d.Name, d.Dirbackup)
+		d.LogDebug("RotateDevice: check directory backup", d.Name, d.Dirbackup)
 		if _, err := os.Stat(d.Dirbackup); os.IsNotExist(err) {
 			_ = os.Mkdir(d.Dirbackup, os.ModePerm)
 			LogConsole.Info(fmt.Sprintf("Create Folder %s for backup ", d.Dirbackup))
