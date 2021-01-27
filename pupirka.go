@@ -97,7 +97,8 @@ func RotateDevice(device *DeviceList) {
 			d.LogDebug(fmt.Sprintf("RotateDevice: Check File %s, time %s", f.Name(), f.ModTime().String()))
 			now := time.Now()
 			fdifftimesecond := now.Sub(f.ModTime()).Seconds()
-			diffday := fdifftimesecond / 60 / 24
+			diffday := fdifftimesecond / 60 / 60 / 24
+			d.LogDebug(fmt.Sprintf("DiffDay: %f", diffday))
 			if int(diffday) > d.Rotate {
 				d.LogDebug(fmt.Sprintf("RotateDevice:File %s old backup for device %s", f.Name(), d.Name))
 				if len(files) > 5 {
