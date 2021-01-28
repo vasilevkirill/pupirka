@@ -119,7 +119,7 @@ All supported parameter in `json` file for device
  - `parent` - if your devices are behind the device and are not directly accessible, you can use this parameter. Specify the name of the device through which you want to establish a connection.
  - `timeformat` - as generate time string in file backup. ([Read documentation and example](#time-format))
  - `prefix` - adding prefix in file name backups.
- - `filename` - position `prefix` and `time` in file name. `%p` replaced `prefix` and `%t` replaced current time.
+ - `filename` - position `prefix` and `time` in file name. `%p` replaced `prefix` and `%t` replaced current time, %n replaced device name
  - `key` - Private Key for used SSH Authorized, need saved private key in folder `./keys`. (**if need used SSH keys, need `password` filed delete or set `""`**)
  - `clearstring` - Specify the character to start with the line to delete.
  - `hook` - Execute command in os.
@@ -168,6 +168,13 @@ format: json
         "skip": ""
       }
   },
+  "git": {
+      "branch": "master",
+      "password": "",
+      "name":"Pupirka",
+      "user": "git@mikrotik.me",
+      "remote": ""
+   },
   "log": {
     "format": "text",
     "maxday": 1
@@ -198,6 +205,12 @@ Sub Categories:
 
 ### devicedefault
   When Pupirka reads device parameters, if in devices json files not set parameter Pupirka used default value from config. Even if you did not set in the global config, these parameters and values are stored in the code Pupirka.
+
+### git
+ Clone current remote repo, Commit and Push remote
+
+  - `branch` - need isset
+  - `remote` - url to remote repo
 
 ### log
   - `format` - the logging format can be `json` or `text`.
