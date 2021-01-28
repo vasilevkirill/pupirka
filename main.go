@@ -54,7 +54,7 @@ func init() {
 	ConfigV.SetDefault("git.branch", "master")
 	if err := ConfigV.ReadInConfig(); err != nil { // error read config
 		log.Println(err)
-		ConfigV.SafeWriteConfig()
+		_ = ConfigV.SafeWriteConfig()
 		//todo need try other exception
 	}
 
