@@ -252,15 +252,15 @@ func SaveBackupFile(device *Device, b []byte) error {
 }
 
 func RemoveStringFromBakcup(device *Device, b []byte) []byte {
-	device.LogDebug(fmt.Sprintf("RemoveStringFromBakcup: ... %s", device.Name))
-	device.LogDebug(fmt.Sprintf("RemoveStringFromBakcup: ... %s", device.Name))
+	device.LogDebug(fmt.Sprintf("RemoveStringFromBackup: ... %s", device.Name))
+	device.LogDebug(fmt.Sprintf("RemoveStringFromBackup: ... %s", device.Name))
 	regstr := fmt.Sprintf(`(?m:^%s.*$)`, device.Clearstring)
-	device.LogDebug(fmt.Sprintf("RemoveStringFromBakcup: regexp %s", regstr))
+	device.LogDebug(fmt.Sprintf("RemoveStringFromBackup: regexp %s", regstr))
 	re := regexp.MustCompile(regstr)
-	device.LogDebug(fmt.Sprintf("RemoveStringFromBakcup: replace string %s", device.Name))
+	device.LogDebug(fmt.Sprintf("RemoveStringFromBackup: replace string %s", device.Name))
 	config := re.ReplaceAllString(string(b), "")
 	config = strings.Trim(config, "\r\n")
-	device.LogDebug(fmt.Sprintf("RemoveStringFromBakcup: Remove empty string %s", device.Name))
+	device.LogDebug(fmt.Sprintf("RemoveStringFromBackup: Remove empty string %s", device.Name))
 	return []byte(config)
 }
 
