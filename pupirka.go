@@ -226,6 +226,7 @@ func SaveBackupFile(device *Device, b []byte) error {
 
 	device.LogDebug(fmt.Sprintf("SaveBackupFile: saved backups... %s", device.Name))
 	backupfile := fmt.Sprintf("%s/%s", device.Dirbackup, device.BackupFileName)
+	FileBackupExist := FileExistBool(backupfile)
 	result := b
 	if device.Clearstring != "" {
 		device.LogDebug(fmt.Sprintf("SaveBackupFile: Need clear string in config... %s", device.Name))
@@ -243,11 +244,22 @@ func SaveBackupFile(device *Device, b []byte) error {
 	}
 	device.LogDebug(fmt.Sprintf("SaveBackupFile: Close file... %s", backupfile))
 	_ = fn.Close()
-	if err := gitClient.AddFile(backupfile); err != nil {
-		device.LogWarn(err)
-		LogConsole.Error(err)
+	if FileBackupExist {
+		CommitName := fmt.Sprintf("Change backup in device %s", device.Name)
+		if err := gitClient.SetCommit(CommitName); err != nil {
+			device.LogWarn(err)
+			LogConsole.Error(err)
+			return err
+		}
 
+	} else {
+		if err := gitClient.AddFile(backupfile); err != nil {
+			device.LogWarn(err)
+			LogConsole.Error(err)
+			return err
+		}
 	}
+
 	return nil
 }
 

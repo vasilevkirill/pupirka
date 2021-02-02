@@ -48,8 +48,8 @@ func init() {
 	ConfigV.SetDefault("log.level", "info")
 	ConfigV.SetDefault("global.hook.pre", "")
 	ConfigV.SetDefault("global.hook.post", "")
-	ConfigV.SetDefault("git.user", "git@mikrotik.me")
-	ConfigV.SetDefault("git.name", "Pupirka")
+	//ConfigV.SetDefault("git.user", "git@mikrotik.me")
+	ConfigV.SetDefault("git.user", "Pupirka")
 	ConfigV.SetDefault("git.password", "")
 	ConfigV.SetDefault("git.branch", "master")
 	if err := ConfigV.ReadInConfig(); err != nil { // error read config

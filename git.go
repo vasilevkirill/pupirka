@@ -163,3 +163,42 @@ func (c *GitClient) Push() error {
 	c.NeedPush = false
 	return nil
 }
+
+func (c *GitClient) SetCommit(filename string) error {
+	LogConsole.Infof("Change File %s to repo", filename)
+	w, err := c.Repository.Worktree()
+	if err != nil {
+		LogConsole.Error(fmt.Sprintf("Error git get WorkTree: %s", err.Error()))
+		return err
+	}
+	_, err = w.Status()
+	if err != nil {
+		LogConsole.Error(fmt.Sprintf("Error git get WorkTree Status: %s", err.Error()))
+		return err
+	}
+	if len(filename) > len(c.Folder) {
+		if filename[:len(c.Folder)] == c.Folder {
+			filename = filename[len(c.Folder)+1:]
+		}
+	}
+	_, err = w.Add(filename)
+	if err != nil {
+		LogConsole.Error(fmt.Sprintf("Error git WorkTree add file: %s %s", err.Error(), filename))
+		return err
+	}
+	commitName := fmt.Sprintf("Change File %s", filename)
+	commit, err := w.Commit(commitName, &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "Pupirka",
+			Email: ConfigV.GetString("git.user"),
+			When:  time.Now(),
+		},
+	})
+	_, err = c.Repository.CommitObject(commit)
+	if err != nil {
+		LogConsole.Error(fmt.Sprintf("Error git Commit name:%s", commitName))
+		return err
+	}
+	go c.Push()
+	return nil
+}
