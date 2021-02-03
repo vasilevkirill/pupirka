@@ -1,4 +1,8 @@
 # Changelog
+## v0.7 (2020-02-02)
+**Implemented enhancements:**
+- add git remote save push and pull
+- add onlyone parameter 
 
 ## v0.6 (2020-01-27)
 **Implemented enhancements:**

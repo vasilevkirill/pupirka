@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/juju/fslock"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -27,7 +28,8 @@ func init() {
 	ConfigV.SetDefault("path.key", "./keys")
 	ConfigV.SetDefault("path.devices", "./device")
 	ConfigV.SetDefault("path.log", "./log")
-	ConfigV.SetDefault("devicedefault.portshh", 22)
+	ConfigV.SetDefault("devicedefault.portshh", 22) //todo need delete
+	ConfigV.SetDefault("devicedefault.portssh", 22)
 	ConfigV.SetDefault("devicedefault.timeout", 10)
 	ConfigV.SetDefault("devicedefault.every", 3600)
 	ConfigV.SetDefault("devicedefault.rotate", 730)
@@ -46,15 +48,16 @@ func init() {
 	ConfigV.SetDefault("log.maxbackups", 10)
 	ConfigV.SetDefault("log.format", "text")
 	ConfigV.SetDefault("log.level", "info")
+	ConfigV.SetDefault("global.onlyone", false)
 	ConfigV.SetDefault("global.hook.pre", "")
 	ConfigV.SetDefault("global.hook.post", "")
-	ConfigV.SetDefault("git.user", "git@mikrotik.me")
-	ConfigV.SetDefault("git.name", "Pupirka")
+	ConfigV.SetDefault("git.email", "vk@mikrotik.me")
+	ConfigV.SetDefault("git.user", "Pupirka")
 	ConfigV.SetDefault("git.password", "")
 	ConfigV.SetDefault("git.branch", "master")
 	if err := ConfigV.ReadInConfig(); err != nil { // error read config
 		log.Println(err)
-		ConfigV.SafeWriteConfig()
+		_ = ConfigV.SafeWriteConfig()
 		//todo need try other exception
 	}
 
@@ -88,6 +91,16 @@ func init() {
 }
 
 func main() {
+	filenameLock := "../pupirka.lock"
+	if ConfigV.GetBool("global.onlyone") == true {
+		lock := fslock.New(filenameLock)
+		err := lock.TryLock()
+		if err != nil {
+			LogConsole.Info("Only One start Process Pupirka")
+			return
+		}
+		defer lock.Unlock()
+	}
 	LogConsole.Info("Starting....")
 	LogConsole.Info("Scan Devices....")
 

@@ -60,6 +60,7 @@ func SshClientRun(device *Device) ([]byte, error) {
 	device.LogDebug(fmt.Sprintf("SshClientRun: ssh session running %s", device.Name))
 	var b bytes.Buffer
 	session.Stdout = &b
+
 	if err := session.Run(device.Command); err != nil {
 		return nil, errors.New("SshClientRun: Run command error:" + err.Error())
 	}

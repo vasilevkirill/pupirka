@@ -226,16 +226,33 @@ func SaveBackupFile(device *Device, b []byte) error {
 
 	device.LogDebug(fmt.Sprintf("SaveBackupFile: saved backups... %s", device.Name))
 	backupfile := fmt.Sprintf("%s/%s", device.Dirbackup, device.BackupFileName)
+	FileBackupExist := FileExistBool(backupfile)
 	result := b
 	if device.Clearstring != "" {
 		device.LogDebug(fmt.Sprintf("SaveBackupFile: Need clear string in config... %s", device.Name))
 		result = RemoveStringFromBakcup(device, b)
 	}
-	device.LogDebug(fmt.Sprintf("SaveBackupFile: Create file... %s", backupfile))
-	fn, err := os.Create(backupfile)
+	com, err := FileCompareByteBool(backupfile, result)
 	if err != nil {
-		return errors.New(fmt.Sprintf("SaveBackupFile: Create file Error:%s", err.Error()))
+		return err
 	}
+	if com == true {
+		return nil
+	}
+	var fn *os.File
+	if FileBackupExist == false {
+		device.LogDebug(fmt.Sprintf("SaveBackupFile: Create file... %s", backupfile))
+		fn, err = os.Create(backupfile)
+		if err != nil {
+			return errors.New(fmt.Sprintf("SaveBackupFile: Create file Error:%s", err.Error()))
+		}
+	} else {
+		fn, err = os.OpenFile(backupfile, os.O_RDWR|os.O_CREATE, 0755)
+		if err != nil {
+			return errors.New(fmt.Sprintf("SaveBackupFile: Open file Error:%s", err.Error()))
+		}
+	}
+
 	device.LogDebug(fmt.Sprintf("SaveBackupFile: Write to file... %s", backupfile))
 	_, err = fn.Write(result)
 	if err != nil {
@@ -243,24 +260,35 @@ func SaveBackupFile(device *Device, b []byte) error {
 	}
 	device.LogDebug(fmt.Sprintf("SaveBackupFile: Close file... %s", backupfile))
 	_ = fn.Close()
-	if err := gitClient.AddFile(backupfile); err != nil {
-		device.LogWarn(err)
-		LogConsole.Error(err)
+	if FileBackupExist {
+		//CommitName := fmt.Sprintf("Change backup in device %s", device.Name)
+		if err := gitClient.SetCommit(backupfile); err != nil {
+			device.LogWarn(err)
+			LogConsole.Error(err)
+			return err
+		}
 
+	} else {
+		if err := gitClient.AddFile(backupfile); err != nil {
+			device.LogWarn(err)
+			LogConsole.Error(err)
+			return err
+		}
 	}
+
 	return nil
 }
 
 func RemoveStringFromBakcup(device *Device, b []byte) []byte {
-	device.LogDebug(fmt.Sprintf("RemoveStringFromBakcup: ... %s", device.Name))
-	device.LogDebug(fmt.Sprintf("RemoveStringFromBakcup: ... %s", device.Name))
+	device.LogDebug(fmt.Sprintf("RemoveStringFromBackup: ... %s", device.Name))
+	device.LogDebug(fmt.Sprintf("RemoveStringFromBackup: ... %s", device.Name))
 	regstr := fmt.Sprintf(`(?m:^%s.*$)`, device.Clearstring)
-	device.LogDebug(fmt.Sprintf("RemoveStringFromBakcup: regexp %s", regstr))
+	device.LogDebug(fmt.Sprintf("RemoveStringFromBackup: regexp %s", regstr))
 	re := regexp.MustCompile(regstr)
-	device.LogDebug(fmt.Sprintf("RemoveStringFromBakcup: replace string %s", device.Name))
+	device.LogDebug(fmt.Sprintf("RemoveStringFromBackup: replace string %s", device.Name))
 	config := re.ReplaceAllString(string(b), "")
 	config = strings.Trim(config, "\r\n")
-	device.LogDebug(fmt.Sprintf("RemoveStringFromBakcup: Remove empty string %s", device.Name))
+	device.LogDebug(fmt.Sprintf("RemoveStringFromBackup: Remove empty string %s", device.Name))
 	return []byte(config)
 }
 
