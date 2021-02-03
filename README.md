@@ -171,8 +171,8 @@ format: json
   "git": {
       "branch": "master",
       "password": "",
-      "name":"Pupirka",
-      "user": "git@mikrotik.me",
+      "user":"Pupirka",
+      "email": "vk@mikrotik.me",
       "remote": ""
    },
   "log": {
@@ -192,7 +192,8 @@ format: json
     "hook": {
       "post": "",
       "pre": ""
-    }
+    },
+    onlyone: false
   }
 }
 ```
@@ -228,8 +229,11 @@ Pupirka created all folder if not found.
 ### Process
   - `max` - in order not to overload the CPU, Pupirka it will back up in groups of the specified count.
 
+### Global
+ other parameter
+ - `onlyone` true or false. Running only one application pupirka
 
-### Global Hooks
+#### Global Hooks
    Running and wait execute custom command.
    - `pre` running before backups
    - `post` running after all backups    

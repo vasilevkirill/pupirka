@@ -232,11 +232,27 @@ func SaveBackupFile(device *Device, b []byte) error {
 		device.LogDebug(fmt.Sprintf("SaveBackupFile: Need clear string in config... %s", device.Name))
 		result = RemoveStringFromBakcup(device, b)
 	}
-	device.LogDebug(fmt.Sprintf("SaveBackupFile: Create file... %s", backupfile))
-	fn, err := os.Create(backupfile)
+	com, err := FileCompareByteBool(backupfile, result)
 	if err != nil {
-		return errors.New(fmt.Sprintf("SaveBackupFile: Create file Error:%s", err.Error()))
+		return err
 	}
+	if com == true {
+		return nil
+	}
+	var fn *os.File
+	if FileBackupExist == false {
+		device.LogDebug(fmt.Sprintf("SaveBackupFile: Create file... %s", backupfile))
+		fn, err = os.Create(backupfile)
+		if err != nil {
+			return errors.New(fmt.Sprintf("SaveBackupFile: Create file Error:%s", err.Error()))
+		}
+	} else {
+		fn, err = os.OpenFile(backupfile, os.O_RDWR|os.O_CREATE, 0755)
+		if err != nil {
+			return errors.New(fmt.Sprintf("SaveBackupFile: Open file Error:%s", err.Error()))
+		}
+	}
+
 	device.LogDebug(fmt.Sprintf("SaveBackupFile: Write to file... %s", backupfile))
 	_, err = fn.Write(result)
 	if err != nil {
@@ -245,8 +261,8 @@ func SaveBackupFile(device *Device, b []byte) error {
 	device.LogDebug(fmt.Sprintf("SaveBackupFile: Close file... %s", backupfile))
 	_ = fn.Close()
 	if FileBackupExist {
-		CommitName := fmt.Sprintf("Change backup in device %s", device.Name)
-		if err := gitClient.SetCommit(CommitName); err != nil {
+		//CommitName := fmt.Sprintf("Change backup in device %s", device.Name)
+		if err := gitClient.SetCommit(backupfile); err != nil {
 			device.LogWarn(err)
 			LogConsole.Error(err)
 			return err

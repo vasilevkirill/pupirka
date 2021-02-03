@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"io/ioutil"
 	"os"
 )
@@ -36,6 +37,13 @@ return true if b equal filename content
 return false if b not equal filename content or error
 */
 func FileCompareByteBool(filename string, b []byte) (bool, error) {
-
+	dat, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return false, err
+	}
+	res := bytes.Compare(dat, b)
+	if res == 0 {
+		return true, nil
+	}
 	return false, nil
 }

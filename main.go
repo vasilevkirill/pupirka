@@ -27,7 +27,8 @@ func init() {
 	ConfigV.SetDefault("path.key", "./keys")
 	ConfigV.SetDefault("path.devices", "./device")
 	ConfigV.SetDefault("path.log", "./log")
-	ConfigV.SetDefault("devicedefault.portshh", 22)
+	ConfigV.SetDefault("devicedefault.portshh", 22) //todo need delete
+	ConfigV.SetDefault("devicedefault.portssh", 22)
 	ConfigV.SetDefault("devicedefault.timeout", 10)
 	ConfigV.SetDefault("devicedefault.every", 3600)
 	ConfigV.SetDefault("devicedefault.rotate", 730)
@@ -48,7 +49,7 @@ func init() {
 	ConfigV.SetDefault("log.level", "info")
 	ConfigV.SetDefault("global.hook.pre", "")
 	ConfigV.SetDefault("global.hook.post", "")
-	//ConfigV.SetDefault("git.user", "git@mikrotik.me")
+	ConfigV.SetDefault("git.email", "vk@mikrotik.me")
 	ConfigV.SetDefault("git.user", "Pupirka")
 	ConfigV.SetDefault("git.password", "")
 	ConfigV.SetDefault("git.branch", "master")

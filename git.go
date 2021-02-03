@@ -171,6 +171,7 @@ func (c *GitClient) SetCommit(filename string) error {
 		LogConsole.Error(fmt.Sprintf("Error git get WorkTree: %s", err.Error()))
 		return err
 	}
+
 	_, err = w.Status()
 	if err != nil {
 		LogConsole.Error(fmt.Sprintf("Error git get WorkTree Status: %s", err.Error()))
@@ -189,8 +190,8 @@ func (c *GitClient) SetCommit(filename string) error {
 	commitName := fmt.Sprintf("Change File %s", filename)
 	commit, err := w.Commit(commitName, &git.CommitOptions{
 		Author: &object.Signature{
-			Name:  "Pupirka",
-			Email: ConfigV.GetString("git.user"),
+			Name:  ConfigV.GetString("git.user"),
+			Email: ConfigV.GetString("git.email"),
 			When:  time.Now(),
 		},
 	})
@@ -199,6 +200,6 @@ func (c *GitClient) SetCommit(filename string) error {
 		LogConsole.Error(fmt.Sprintf("Error git Commit name:%s", commitName))
 		return err
 	}
-	go c.Push()
+	c.NeedPush = true
 	return nil
 }
