@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/juju/fslock"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -47,6 +48,7 @@ func init() {
 	ConfigV.SetDefault("log.maxbackups", 10)
 	ConfigV.SetDefault("log.format", "text")
 	ConfigV.SetDefault("log.level", "info")
+	ConfigV.SetDefault("global.onlyone", false)
 	ConfigV.SetDefault("global.hook.pre", "")
 	ConfigV.SetDefault("global.hook.post", "")
 	ConfigV.SetDefault("git.email", "vk@mikrotik.me")
@@ -89,6 +91,16 @@ func init() {
 }
 
 func main() {
+	filenameLock := "../pupirka.lock"
+	if ConfigV.GetBool("global.onlyone") == true {
+		lock := fslock.New(filenameLock)
+		err := lock.TryLock()
+		if err != nil {
+			LogConsole.Info("Only One start Process Pupirka")
+			return
+		}
+		defer lock.Unlock()
+	}
 	LogConsole.Info("Starting....")
 	LogConsole.Info("Scan Devices....")
 
