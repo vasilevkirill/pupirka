@@ -26,6 +26,9 @@ func RunGlobalPreStart() error {
 
 	gitClient.Folder = ConfigV.GetString("path.backup")
 	gitClient.RepoUrl = ConfigV.GetString("git.remote")
+	if gitClient.CheckRepo() == false {
+		return nil
+	}
 	if gitClient.RepoUrl == "" {
 		rep, err := git.PlainOpen(gitClient.Folder)
 		if err != nil {
@@ -58,6 +61,9 @@ func RunGlobalPreStart() error {
 }
 
 func (c *GitClient) AddFile(filename string) error {
+	if c.CheckRepo() == false {
+		return nil
+	}
 	LogConsole.Infof("Adding File %s to repo", filename)
 	w, err := c.Repository.Worktree()
 	if err != nil {
@@ -99,6 +105,9 @@ func (c *GitClient) AddFile(filename string) error {
 	return nil
 }
 func (c *GitClient) RemoveFile(filename string) error {
+	if c.CheckRepo() == false {
+		return nil
+	}
 	LogConsole.Infof("Remove File %s to repo", filename)
 	w, err := c.Repository.Worktree()
 	if err != nil {
@@ -141,6 +150,9 @@ func (c *GitClient) RemoveFile(filename string) error {
 }
 
 func (c *GitClient) CheckPush() error {
+	if c.CheckRepo() == false {
+		return nil
+	}
 	if c.NeedPush {
 		return c.Push()
 	}
@@ -148,6 +160,9 @@ func (c *GitClient) CheckPush() error {
 }
 
 func (c *GitClient) Push() error {
+	if c.CheckRepo() == false {
+		return nil
+	}
 
 	err := c.Repository.Push(&git.PushOptions{
 		Auth: &c.Auth,
@@ -165,6 +180,9 @@ func (c *GitClient) Push() error {
 }
 
 func (c *GitClient) SetCommit(filename string) error {
+	if c.CheckRepo() == false {
+		return nil
+	}
 	LogConsole.Infof("Change File %s to repo", filename)
 	w, err := c.Repository.Worktree()
 	if err != nil {
@@ -202,4 +220,11 @@ func (c *GitClient) SetCommit(filename string) error {
 	}
 	c.NeedPush = true
 	return nil
+}
+
+func (c *GitClient) CheckRepo() bool {
+	if c.RepoUrl == "" {
+		return false
+	}
+	return true
 }
