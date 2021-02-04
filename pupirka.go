@@ -232,14 +232,19 @@ func SaveBackupFile(device *Device, b []byte) error {
 		device.LogDebug(fmt.Sprintf("SaveBackupFile: Need clear string in config... %s", device.Name))
 		result = RemoveStringFromBakcup(device, b)
 	}
-	com, err := FileCompareByteBool(backupfile, result)
-	if err != nil {
-		return err
+	if FileBackupExist == true {
+		com, err := FileCompareByteBool(backupfile, result)
+		if err != nil {
+			return err
+		}
+		if com == true {
+			return nil
+		}
 	}
-	if com == true {
-		return nil
-	}
+
 	var fn *os.File
+
+	var err error
 	if FileBackupExist == false {
 		device.LogDebug(fmt.Sprintf("SaveBackupFile: Create file... %s", backupfile))
 		fn, err = os.Create(backupfile)
