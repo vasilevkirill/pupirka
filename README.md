@@ -3,11 +3,9 @@
 (Simple Backup over SSH)
 ---
 
-Author @vasilevkirill [My Web Site](https://mikrotik.me/vasilevkirill.html)
+Author @vasilevkirill [My Web Site](https://vasilevkirill.ru)
 
 Pupirka is a Application for simple execute command in ssh server and response save in file, supported SSH LocalPort Forward.
-
-
 
  - Pupirka - this not service
  - Pupirka - this not used external library
@@ -274,7 +272,4 @@ Please read documentation golang for time format loyuot
 
 
 ---
-RUS - https://mikrotik.me/blog-pupirka-ru.html
-
-
-Eng - https://mikrotik.me/blog-pupirka-en.html
+RUS - https://vasilevkirill.ru/articles/pupirka/
