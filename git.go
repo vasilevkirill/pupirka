@@ -2,39 +2,31 @@ package main
 
 import (
 	"fmt"
-	"gopkg.in/src-d/go-git.v4"
-	"gopkg.in/src-d/go-git.v4/plumbing"
-	"gopkg.in/src-d/go-git.v4/plumbing/object"
-	"gopkg.in/src-d/go-git.v4/plumbing/transport/http"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"time"
 )
 
+// GitClient tracks the backup repository and whether local commits need push.
 type GitClient struct {
 	Folder     string
-	Repo       string
-	Token      string
 	NeedPush   bool
 	RepoUrl    string
 	Auth       http.BasicAuth
-	Branch     plumbing.ReferenceName
 	Repository *git.Repository
 }
 
 var gitClient GitClient
 
+// RunGlobalPreStart opens or clones the configured backup repository once at
+// startup. Without git.remote, backup files remain local.
 func RunGlobalPreStart() error {
 
 	gitClient.Folder = ConfigV.GetString("path.backup")
 	gitClient.RepoUrl = ConfigV.GetString("git.remote")
-	if gitClient.CheckRepo() == false {
-		return nil
-	}
-	if gitClient.RepoUrl == "" {
-		rep, err := git.PlainOpen(gitClient.Folder)
-		if err != nil {
-			return err
-		}
-		gitClient.Repository = rep
+	if !gitClient.CheckRepo() {
 		return nil
 	}
 	gitClient.Auth = struct{ Username, Password string }{Username: ConfigV.GetString("git.user"), Password: ConfigV.GetString("git.password")}
@@ -60,6 +52,7 @@ func RunGlobalPreStart() error {
 	return nil
 }
 
+// AddFile stages a newly written backup and creates a commit for it.
 func (c *GitClient) AddFile(filename string) error {
 	if c.CheckRepo() == false {
 		return nil
@@ -104,6 +97,8 @@ func (c *GitClient) AddFile(filename string) error {
 	}
 	return nil
 }
+
+// RemoveFile stages the deletion of a rotated backup and commits it.
 func (c *GitClient) RemoveFile(filename string) error {
 	if c.CheckRepo() == false {
 		return nil
@@ -124,7 +119,7 @@ func (c *GitClient) RemoveFile(filename string) error {
 			filename = filename[len(c.Folder)+1:]
 		}
 	}
-	_, err = w.Remove(filename)
+	err = w.AddWithOptions(&git.AddOptions{Path: filename, All: true})
 	if err != nil {
 		LogConsole.Errorf("Error git WorkTree add file: %s %s", err.Error(), filename)
 		return err
@@ -149,6 +144,7 @@ func (c *GitClient) RemoveFile(filename string) error {
 	return nil
 }
 
+// CheckPush pushes only when a previous backup operation created a commit.
 func (c *GitClient) CheckPush() error {
 	if c.CheckRepo() == false {
 		return nil
@@ -159,6 +155,7 @@ func (c *GitClient) CheckPush() error {
 	return nil
 }
 
+// Push sends pending backup commits to the configured remote.
 func (c *GitClient) Push() error {
 	if c.CheckRepo() == false {
 		return nil
@@ -179,6 +176,7 @@ func (c *GitClient) Push() error {
 	return nil
 }
 
+// SetCommit stages and commits changes to an existing backup file.
 func (c *GitClient) SetCommit(filename string) error {
 	if c.CheckRepo() == false {
 		return nil
@@ -222,6 +220,7 @@ func (c *GitClient) SetCommit(filename string) error {
 	return nil
 }
 
+// CheckRepo reports whether Git integration is enabled by git.remote.
 func (c *GitClient) CheckRepo() bool {
 	if c.RepoUrl == "" {
 		return false

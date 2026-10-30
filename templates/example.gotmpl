@@ -1,0 +1,4 @@
+{{/* Copy and edit this file, then set "template": "example" in device JSON. */}}
+{{- $version := exec "show version" | trimLineRight -}}
+{{- comment "# " $version -}}
+{{- exec "show running-config" | stripANSI | trimLineRight -}}

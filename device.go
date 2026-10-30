@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+// LogConfig creates the per-device logger using the configured format, level,
+// and rotating log file.
 func (device *Device) LogConfig() {
 	device.Logdevice = logrus.New()
 
@@ -32,29 +34,33 @@ func (device *Device) LogConfig() {
 	device.Logdevice.SetLevel(LogConsole.GetLevel())
 }
 
+// LogError records a device failure in the device, console, and global logs.
 func (device *Device) LogError(s ...interface{}) {
 	device.Logdevice.Errorln(s...)
-	device.Logdevice.Infoln(s...)
-	device.Logdevice.Debugln(s...)
-	device.Logdevice.Warnln(s...)
 	LogConsole.Errorln(s...)
 	LogGlobal.Errorln(s...)
 }
+
+// LogInfo records routine device progress in its own log.
 func (device *Device) LogInfo(s ...interface{}) {
 	device.Logdevice.Infoln(s...)
-	device.Logdevice.Debugln(s...)
 }
+
+// LogWarn records a device warning in its own log and the global log.
 func (device *Device) LogWarn(s ...interface{}) {
 	device.Logdevice.Warnln(s...)
-	device.Logdevice.Debugln(s...)
 	LogGlobal.Warnln(s...)
 }
+
+// LogDebug records diagnostic details at debug level.
 func (device *Device) LogDebug(s ...interface{}) {
-	device.Logdevice.Debug(s...)
+	device.Logdevice.Debugln(s...)
 	LogGlobal.Debugln(s...)
 	LogConsole.Debugln(s...)
 }
 
+// Hook starts the command configured for the device's final job status. The
+// command runs asynchronously; its goroutine waits to reap the child process.
 func (device *Device) Hook() {
 	device.LogDebug(fmt.Sprintf("Run Hook '%s': Device %s", device.StatusJob, device.Name))
 	var command string
@@ -78,6 +84,10 @@ func (device *Device) Hook() {
 	execCommand := strings.NewReplacer(zipStringsForReplacer(rVariable, rValue)...).Replace(command)
 	device.LogDebug(fmt.Sprintf("Hook '%s': Command Compile for hook '%s': Device %s", device.StatusJob, execCommand, device.Name))
 	execComandi := strings.Fields(execCommand)
+	if len(execComandi) == 0 {
+		device.LogError("Hook command is empty after substitution")
+		return
+	}
 	cmd := exec.Command(execComandi[0], execComandi[1:]...)
 	device.LogDebug(fmt.Sprintf("Hook '%s': Hook Runiing: Device %s", device.StatusJob, device.Name))
 	err := cmd.Start()
@@ -85,9 +95,16 @@ func (device *Device) Hook() {
 		device.LogError("Error running command: ", err)
 		return
 	}
-
+	// A long-running process must reap completed hooks to avoid zombies.
+	go func() {
+		if err := cmd.Wait(); err != nil {
+			device.LogError("Hook command failed: ", err)
+		}
+	}()
 }
 
+// zipStringsForReplacer interleaves placeholder names and values for
+// strings.NewReplacer.
 func zipStringsForReplacer(a1, a2 []string) []string {
 	r := make([]string, 2*len(a1))
 	for i, e := range a1 {

@@ -1,0 +1,20 @@
+{{/* Adapted from ytti/oxidized lib/oxidized/model/routeros.rb (Apache-2.0).
+     Source: https://github.com/ytti/oxidized/blob/master/lib/oxidized/model/routeros.rb
+     Changes: Go text/template syntax and SSH exec output processing. */}}
+{{- $resource := exec "/system resource print" | stripANSI | trimLineRight -}}
+{{- comment "# " (keepLines `(?m)^\s*(version|factory-software|total-memory|cpu|cpu-count|total-hdd-space|architecture-name|board-name|platform):` $resource) -}}
+{{- $package := exec "/system package update print" | stripANSI | trimLineRight -}}
+{{- comment "# " (keepLines `(?m)^\s*(installed-version|current-version):` $package) -}}
+{{- $version := regexFind `(?m)^\s*(?:installed-version|current-version):\s*([0-9]+)` $package -}}
+{{- $history := exec "/system history print without-paging" | stripANSI | trimLineRight -}}
+{{- comment "# " $history -}}
+{{- $exportCommand := "/export" -}}
+{{- if index .Vars "remove_secret" -}}
+  {{- $exportCommand = "/export hide-sensitive" -}}
+{{- else if regexFind `^(?:[7-9]|[1-9][0-9]+)$` $version -}}
+  {{- $exportCommand = "/export show-sensitive" -}}
+{{- end -}}
+{{- $export := exec $exportCommand | stripANSI | trimLineRight -}}
+{{- $export = regexReplace `\\\r?\n[ \t]+` "" $export -}}
+{{- $export = dropLines `^# (?:\w{3}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2}).*$|^# inactive time$|^# received packet from \S+ bad format$|^# poe-out status: (?:short_circuit|voltage_on_poe-in)$|^# Firmware upgraded successfully, please reboot for changes to take effect!$|^# \S+ not ready$|^# .+ please restart the device in order to apply the new setting$` $export -}}
+{{- trimLineRight $export -}}

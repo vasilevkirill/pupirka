@@ -26,7 +26,8 @@ var sshChippers = []string{
 	"3des-cbc", "blowfish-cbc", "twofish-cbc", "twofish256-cbc", "twofish192-cbc", "twofish128-cbc", "aes256-cbc", "aes192-cbc", "aes128-cbc", "arcfour",
 }
 
-//connect and run command, return []byte
+// SshClientRun connects to a device and returns stdout from its legacy single
+// command. Template-based devices use SshClientRunTemplate instead.
 func SshClientRun(device *Device) ([]byte, error) {
 
 	auth, err := SshClientDeviceAuth(device)
@@ -42,7 +43,7 @@ func SshClientRun(device *Device) ([]byte, error) {
 		},
 		User:            device.Username,
 		Auth:            auth,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: SshHostKeyCallback(device.KnownHostAddress),
 		Timeout:         time.Duration(device.Timeout) * time.Second,
 	}
 	address := SshAddressFormat(device)
@@ -68,7 +69,8 @@ func SshClientRun(device *Device) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-//prepare auth method for client
+// SshClientDeviceAuth builds password or public-key authentication according
+// to the device settings.
 func SshClientDeviceAuth(device *Device) ([]ssh.AuthMethod, error) {
 	var auth []ssh.AuthMethod
 	if device.Authkey == false {
@@ -92,6 +94,7 @@ func SshClientDeviceAuth(device *Device) ([]ssh.AuthMethod, error) {
 	return auth, nil
 }
 
+// SshAddressFormat returns the host and SSH port used for dialing.
 func SshAddressFormat(device *Device) string {
 	str := fmt.Sprintf("%s:%d", device.Address, device.PortSSH)
 	device.LogDebug(fmt.Sprintf("SshAddressFormat: addres (%s)", str))

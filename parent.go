@@ -13,10 +13,14 @@ import (
 var MDeviceList = make(map[string]Device)
 var MLocalPort = make(map[uint16]string)
 
+// SshForwardNewDevice starts a local tunnel through parent and returns a copy
+// of child configured to dial that tunnel. Its original address is retained
+// for SSH host-key verification.
 func SshForwardNewDevice(parent Device, child Device) Device {
 	child.LogDebug("SshForwardNewDevice: Get new address", child.Name)
 	lport := SshLocalGeneratePort()
 	go SshClientRunForward(&parent, child, lport)
+	child.KnownHostAddress = SshAddressFormat(&child)
 	child.Address = "localhost"
 	child.PortSSH = lport
 	child.LogDebug(fmt.Sprintf("SshForwardNewDevice: new address (%s), new port (%d)", child.Address, child.PortSSH))
@@ -24,6 +28,8 @@ func SshForwardNewDevice(parent Device, child Device) Device {
 
 }
 
+// SshClientRunForward accepts local connections and forwards each one through
+// the parent device to the child's original address.
 func SshClientRunForward(parent *Device, child Device, lport uint16) {
 	auth, _ := SshClientDeviceAuth(parent)
 
@@ -34,7 +40,7 @@ func SshClientRunForward(parent *Device, child Device, lport uint16) {
 		},
 		User:            parent.Username,
 		Auth:            auth,
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		HostKeyCallback: SshHostKeyCallback(""),
 		Timeout:         time.Duration(parent.Timeout) * time.Second,
 	}
 
@@ -46,7 +52,7 @@ func SshClientRunForward(parent *Device, child Device, lport uint16) {
 	}
 
 	for {
-		// Setup localConn (type net.Conn)
+		// Each incoming connection gets its own SSH connection to the parent.
 		localConn, err := localListener.Accept()
 		if err != nil {
 			child.LogError(fmt.Sprintf("SshClientRunForward listen.Accept failed: %s", err.Error()))
@@ -56,33 +62,40 @@ func SshClientRunForward(parent *Device, child Device, lport uint16) {
 	}
 }
 
+// forward copies traffic in both directions between a local connection and a
+// connection opened through the parent device.
 func forward(localConn net.Conn, config *ssh.ClientConfig, parentaddress string, childaddress string) {
-	// Setup sshClientConn (type *ssh.ClientConn)
 	sshClientConn, err := ssh.Dial("tcp", parentaddress, config)
 	if err != nil {
-		LogConsole.Info(fmt.Sprintf("ssh.Dial failed %s ... Child %s, Parent %s", err.Error(), childaddress, parentaddress))
+		LogConsole.Warnf("ssh.Dial failed %s ... Child %s, Parent %s", err, childaddress, parentaddress)
+		_ = localConn.Close()
+		return
+	}
+	// Dial the child from inside the parent SSH connection.
+	sshConn, err := sshClientConn.Dial("tcp", childaddress)
+	if err != nil {
+		LogConsole.Warnf("SSH forwarding failed %s ... Child %s, Parent %s", err, childaddress, parentaddress)
+		_ = localConn.Close()
 		_ = sshClientConn.Close()
 		return
 	}
-	// Setup sshConn (type net.Conn)
-	sshConn, err := sshClientConn.Dial("tcp", childaddress)
 
-	// Copy localConn.Reader to sshConn.Writer
+	// Forward requests to the child.
 	go func() {
-		_, err = io.Copy(sshConn, localConn)
-		if err != nil {
-			LogConsole.Info(fmt.Sprintf("io.Copy failed %s ... Child %s, Parent %s", err.Error(), childaddress, parentaddress))
+		_, copyErr := io.Copy(sshConn, localConn)
+		if copyErr != nil {
+			LogConsole.Info(fmt.Sprintf("io.Copy failed %s ... Child %s, Parent %s", copyErr.Error(), childaddress, parentaddress))
 			_ = sshConn.Close()
 			_ = sshClientConn.Close()
 			return
 		}
 	}()
 
-	// Copy sshConn.Reader to localConn.Writer
+	// Forward responses to the local client.
 	go func() {
-		_, err = io.Copy(localConn, sshConn)
-		if err != nil {
-			LogConsole.Info(fmt.Sprintf("io.Copy failed %s ... Child %s, Parent %s", err.Error(), childaddress, parentaddress))
+		_, copyErr := io.Copy(localConn, sshConn)
+		if copyErr != nil {
+			LogConsole.Info(fmt.Sprintf("io.Copy failed %s ... Child %s, Parent %s", copyErr.Error(), childaddress, parentaddress))
 			_ = sshConn.Close()
 			_ = sshClientConn.Close()
 			return
@@ -91,6 +104,8 @@ func forward(localConn net.Conn, config *ssh.ClientConfig, parentaddress string,
 
 }
 
+// SshLocalGeneratePort reserves a candidate port for a local forwarding
+// listener. The listener still reports bind failures separately.
 func SshLocalGeneratePort() uint16 {
 	min := 40000
 	max := 50000
@@ -106,6 +121,7 @@ func SshLocalGeneratePort() uint16 {
 	}
 }
 
+// SshNeedForward resolves the parent named by a child device.
 func SshNeedForward(device *Device) (Device, Device, error) {
 
 	if _, ok := MDeviceList[device.Parent]; !ok {

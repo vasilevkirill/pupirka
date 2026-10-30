@@ -7,7 +7,7 @@ Author @vasilevkirill [My Web Site](https://vasilevkirill.ru)
 
 Pupirka is a Application for simple execute command in ssh server and response save in file, supported SSH LocalPort Forward.
 
- - Pupirka - this not service
+ - Pupirka can run once or stay active as a service with `-daemon`
  - Pupirka - this not used external library
  - Pupirka - running one binary and save backup from all MikroTik or other devices
  - Pupirka - Supported all Operating System if supported Golang
@@ -22,14 +22,17 @@ Pupirka is a Application for simple execute command in ssh server and response s
         - [First setup](#first-setup)
     - [Quick Start](#quick-start)
     - [Device Settings](#device-all-parameter)
+      - [Backup templates](#backup-templates)
       - [Device Hook](#device-hook)
     - [Config Pupirka](#puprik-config)
       - [Device Default Parameter](#devicedefault)
       - [Logging](#log)
       - [Path](#path)
+      - [SSH host keys](#ssh-host-keys)
       - [Proccess](#proccess)
       - [Global Hooks](#global-hooks)
     - [Time Format](#time-format)
+    - [Code structure](#code-structure)
 ---
 
 ## Installation
@@ -51,7 +54,7 @@ git clone https://github.com/vasilevkirill/pupirka.git
 Your need installed go and running command
 ```bash
 cd pupirka
-go get -d ./...
+go mod download
 go build -ldflags "-s" -o pupirka .
 ```
 
@@ -80,7 +83,9 @@ Needed added `json` file in folder `device`. File name is name device. (Example 
 
 Paprika connected to SSH server in address and auth used credential from `json` file.
 
-Running command `/export` (Default) and saved response in file `./backup/mydevice-01/20200903T2210.rsc` if you need automated backup used cron in unix or scheduler in Windows, running `pupirka`.
+Running command `/export` (Default) saves the response in `./backup/mydevice-01/20200903T2210.rsc`.
+
+By default, `./pupirka` makes one pass and exits; use cron or a system scheduler to repeat it. Run `./pupirka -daemon` to keep the process active. It backs up each device according to its `every` interval (in seconds), checks device JSON files again between passes, and stops cleanly on SIGINT or SIGTERM. Run it under your system service manager if you want it to start automatically after a reboot. The process checks for configuration changes at least every 30 seconds; restart it after changing `pupirka.config.json`.
 
 ## Device all parameter
 
@@ -93,6 +98,9 @@ Running command `/export` (Default) and saved response in file `./backup/mydevic
   "timeout": 10,
   "every": 3600,
   "rotate": 730,
+  "project": "team/site",
+  "template": "routeros",
+  "vars": {"remove_secret": false},
   "parent": "mydevice-02",
   "timeformat": "20060102T1504",
   "prefix": "rootR1-",
@@ -113,7 +121,10 @@ All supported parameter in `json` file for device
  - `timeout` - if your device very slow response, set needed time wait in second.
  - `every` - how often to backup, check the time of the last file and if the difference with the current time is greater than the time of the file, a backup will be created.
  - `rotate` - delete old files backups older than days. (in order not to accidentally delete all backups, the deletion will occur if ONLY the count of backup files is more than (5) five files.)
+ - `project` - optional folder path under `path.backup`, using `/` between names. For example, `team/site` stores backups in `backup/team/site/<device>/`. Absolute paths, `.` and `..` are rejected. An explicit empty string disables `devicedefault.project` for this device. Existing backups are not moved. `path.backup` remains the trusted root and may be configured separately.
  - `command` - execute command on remote device, if you need backup only firewall in mikrotik (`/ip firewall export`)
+ - `template` - use a Go backup template instead of `command`; an explicit empty value selects the legacy command even when `devicedefault.template` is set.
+ - `vars` - optional values for the selected template, such as `remove_secret` for RouterOS.
  - `parent` - if your devices are behind the device and are not directly accessible, you can use this parameter. Specify the name of the device through which you want to establish a connection.
  - `timeformat` - as generate time string in file backup. ([Read documentation and example](#time-format))
  - `prefix` - adding prefix in file name backups.
@@ -123,6 +134,22 @@ All supported parameter in `json` file for device
  - `hook` - Execute command in os.
 
 Many defaults can be changed globally in the config file `pupirka.config.json`.
+
+### Backup templates
+
+Set `"template": "routeros"` in device JSON to use the built-in RouterOS model. It collects resource, package and history information, then selects `/export`, `/export show-sensitive` for RouterOS 7+, or `/export hide-sensitive` when `"vars": {"remove_secret": true}`. The model is adapted from [Oxidized's RouterOS model](https://github.com/ytti/oxidized/blob/master/lib/oxidized/model/routeros.rb); its attribution and Apache-2.0 license are in `models/`.
+
+Put custom Go `text/template` files in `path.templates` (default `./templates`) and refer to them by name without the `.gotmpl` extension. Local files override a built-in model of the same name. For example, `templates/example.gotmpl` runs two commands. The template's rendered text becomes one backup file, then the usual `clearstring`, rotation, Git and hook steps apply. An empty result or any template or command error prevents the file from being written.
+
+Templates receive `.Name`, `.Address`, `.Project` and `.Vars`; passwords and private keys are not exposed. Available functions are `exec` (SSH command), `regexFind` (first capture group, or full match), `regexReplace`, `keepLines`, `dropLines`, `stripANSI`, `trimLineRight` and `comment`. For example:
+
+```gotemplate
+{{- $version := exec "show version" | trimLineRight -}}
+{{- comment "# " $version -}}
+{{- exec "show running-config" | stripANSI | trimLineRight -}}
+```
+
+`exec` uses one SSH connection and a new session for each command, in template order. Each command must finish within `timeout` seconds. This first version supports SSH exec commands; Oxidized models requiring an interactive shell, Telnet or an API need separate implementation stages.
 
 ### Devece Hook
 
@@ -139,7 +166,7 @@ this string can be used next arguments
   - `%address` - Address Device
   - `%portssh` - Port ssh Device
 
-Pupirka **NOT** Wait execute command for devices.
+Device hooks start without waiting for them to finish.
 
 ## Config Pupirka
 
@@ -155,8 +182,10 @@ format: json
     "every": 3600,
     "filenameformat": "%p%t.rcs",
     "key": "",
+    "template": "",
     "portshh": 22,
     "prefix": "",
+    "project": "",
     "rotate": 730,
     "timeformat": "20060102T1504",
     "timeout": 10,
@@ -181,7 +210,11 @@ format: json
     "backup": "./backup",
     "devices": "./device",
     "key": "./keys",
-    "log": "./log"
+    "log": "./log",
+    "templates": "./templates"
+  },
+  "ssh": {
+    "knownhosts": false
   },
   "process": {
     "max": 10
@@ -223,6 +256,11 @@ Pupirka created all folder if not found.
  - `devices` - folder used for find your devices. Your needed create json file devices in this folder.
  - `key` -  Pupirka find in this folder Private Keys for Auth devices.
  - `log` -  Folder for save all log.
+ - `templates` - folder for custom `.gotmpl` backup templates.
+
+### SSH host keys
+
+Set `ssh.knownhosts` to `true` to save new SSH host keys in `path.key/known_hosts` and verify them on later connections. A changed or revoked key produces a warning and the connection fails. The setting also applies when connecting through a parent device. With `false` (the default), host keys are ignored as before.
 
 ### Process
   - `max` - in order not to overload the CPU, Pupirka it will back up in groups of the specified count.
@@ -269,6 +307,14 @@ Examples: datetime 2020-09-04:22:15:01
 `timefomat` = "2006-01-2 30405" #result 2020-09-4 101501
 ```
 Please read documentation golang for time format loyuot
+
+## Code structure
+
+`main.go` loads configuration and runs either one backup pass or the daemon loop. Each pass scans device JSON files, applies defaults, rotates old backups, and runs due jobs in a worker pool (`pupirka.go`). Devices with invalid settings are logged and skipped.
+
+`sshclient.go` runs the legacy single command. `templates.go` loads a local or embedded Go template, opens one SSH connection, and executes each template command in a separate session. `parent.go` handles SSH forwarding through a parent device. The resulting bytes reach `SaveBackupFile` only after collection succeeds.
+
+`backuppath.go` validates project, device, and filename components. File operations use `os.Root` under the configured `path.backup`; rotation considers only regular backup files for that device. `git.go` records added, changed, and removed files when a remote repository is configured. Local SSH and filesystem tests exercise these paths without network devices.
 
 
 ---
